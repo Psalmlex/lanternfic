@@ -1,0 +1,2188 @@
+import React, { useState, useMemo, useRef, useEffect } from "react";
+import { Search, Flame, BookOpen, ChevronLeft, ChevronRight, Bookmark, Star, Clock, List, X, Sun, Moon, Type, Minus, Plus, User, Award, BookMarked, Bell, HelpCircle, LogOut, ChevronRight as ChevronRightIcon, PenSquare, Trash2, Send, Eye, Heart, FileText, Check, Wallet as WalletIcon, DollarSign, Gift, Lock, Unlock, Share2, PlayCircle, TrendingUp, ArrowDownToLine } from "lucide-react";
+
+/* ---------------------------------------------------------
+   MOCK DATA
+--------------------------------------------------------- */
+
+const GENRES = ["Fantasy", "Xianxia", "LitRPG", "Romance", "Sci-Fi", "Mystery"];
+
+const NOVELS = [
+  {
+    id: "n1",
+    title: "The Sword That Remembers",
+    author: "Wren Castellan",
+    genre: "Fantasy",
+    cover: "#7C5CBF",
+    coverAccent: "#F0C869",
+    synopsis:
+      "A blade forged from a dead god's spine chooses a new wielder every generation — and it never forgets what the last one did wrong. Kess didn't want the sword. The sword doesn't care.",
+    rating: 4.8,
+    reads: "2.4M",
+    status: "Ongoing",
+    chapters: 142,
+    updated: "3h ago",
+  },
+  {
+    id: "n2",
+    title: "Nine Lives of the Ashfall Sect",
+    author: "Bo Lian",
+    genre: "Xianxia",
+    cover: "#B5482F",
+    coverAccent: "#F3ECDD",
+    synopsis:
+      "Reincarnated for the ninth time with all his memories intact, Ash Wen is done climbing the slow way. Problem is, the mountain remembers him too — and it's still angry.",
+    rating: 4.6,
+    reads: "5.1M",
+    status: "Ongoing",
+    chapters: 389,
+    updated: "1h ago",
+  },
+  {
+    id: "n3",
+    title: "Respawn Protocol",
+    author: "Iris Voss",
+    genre: "LitRPG",
+    cover: "#2E7D6B",
+    coverAccent: "#D4A24C",
+    synopsis:
+      "Every death levels up her stats. Every level costs her a memory. Mara is running out of things she remembers about the world she's trying to save.",
+    rating: 4.7,
+    reads: "1.8M",
+    status: "Ongoing",
+    chapters: 96,
+    updated: "6h ago",
+  },
+  {
+    id: "n4",
+    title: "The Cartographer's Wife",
+    author: "Delphine Roux",
+    genre: "Romance",
+    cover: "#A64D6B",
+    coverAccent: "#F3ECDD",
+    synopsis:
+      "He maps coastlines that don't exist yet. She's the only person who can see them too. A slow-burn romance across a decade of impossible geography.",
+    rating: 4.9,
+    reads: "3.6M",
+    status: "Completed",
+    chapters: 214,
+    updated: "2d ago",
+  },
+  {
+    id: "n5",
+    title: "Signal From the Long Dark",
+    author: "Toma Achebe",
+    genre: "Sci-Fi",
+    cover: "#3B4B7C",
+    coverAccent: "#8ED6D0",
+    synopsis:
+      "A relay station on the edge of the system picks up a transmission in a language humanity hasn't invented yet. It's addressed to someone on the crew, by name.",
+    rating: 4.5,
+    reads: "980K",
+    status: "Ongoing",
+    chapters: 61,
+    updated: "12h ago",
+  },
+  {
+    id: "n6",
+    title: "The Thirteenth Alibi",
+    author: "Priya Nandakumar",
+    genre: "Mystery",
+    cover: "#4A4A4A",
+    coverAccent: "#D4A24C",
+    synopsis:
+      "Twelve suspects, twelve airtight alibis. The detective's problem is that she's starting to believe all twelve of them — and none of them are telling the truth.",
+    rating: 4.7,
+    reads: "1.2M",
+    status: "Ongoing",
+    chapters: 58,
+    updated: "5h ago",
+  },
+];
+
+const CHAPTER_TITLES = [
+  "The Weight of an Unclaimed Blade",
+  "What the Ash Remembers",
+  "A Debt Paid in Silence",
+  "The Ninth Door",
+  "Where the Light Doesn't Reach",
+  "A Name Spoken Backward",
+  "The Last Honest Room",
+  "Something Older Than Fear",
+];
+
+function genChapters(novel) {
+  return Array.from({ length: Math.min(novel.chapters, 24) }, (_, i) => ({
+    num: i + 1,
+    title: CHAPTER_TITLES[i % CHAPTER_TITLES.length] + (i >= CHAPTER_TITLES.length ? ` (${i + 1})` : ""),
+    words: 1800 + ((i * 137) % 900),
+    premium: i >= 5,
+    price: 0.99,
+  }));
+}
+
+const PARAGRAPHS = [
+  "The lantern had burned low by the time she noticed the sword was watching her again. Not with eyes — it had none — but with that particular stillness that meant it was remembering something, and whatever it remembered was about her.",
+  "\u201cYou could just tell me,\u201d she said to it, not for the first time. Steel doesn't answer. It never has. But sometimes, in the hour before dawn, she could swear the hilt warmed under her palm like something trying to agree.",
+  "Outside, the camp had gone quiet in the particular way that meant everyone was pretending to sleep. She knew that quiet. She'd worn it herself, plenty of nights, back when the sword was someone else's problem.",
+  "The fire had burned down to a single stubborn coal, and by its light she could just make out the old nicks along the blade — each one a story the sword refused to tell her, in a language made entirely of consequence.",
+  "She thought about the man who'd carried it before her. Thought about the choice he'd made, the one that put the sword back in the ground and put her name in its place. It hadn't been a fair trade. Nothing about this ever was.",
+  "Somewhere past the treeline, something that was not the wind moved through the dark, unhurried, patient, the way old things move when they know exactly how much time they have left to spend.",
+  "She stood. The sword came with her, the way it always did now, less a weapon than a second spine. \u201cFine,\u201d she said, to the dark, to the coal, to the blade. \u201cShow me, then. Show me what he did.\u201d",
+  "And for the first time in three hundred years, it did.",
+];
+
+const DRAFT_SAMPLE = `The orchard hadn't grown anything but glass for eleven years, and still old Ren came out every morning to check the branches for fruit.
+
+Nobody in the valley remembered planting it. Nobody remembered a time before it either — which was the sort of detail people mentioned once, uneasily, and then agreed never to bring up again.`;
+
+const initialAuthorWorks = [
+  {
+    id: "w1",
+    title: "The Glass Orchard",
+    cover: "#5C7C5C",
+    coverAccent: "#F0C869",
+    genre: "Fantasy",
+    status: "Ongoing",
+    views: "142K",
+    likes: 3200,
+    chapters: [
+      { id: 1, title: "Roots", body: DRAFT_SAMPLE, status: "published", words: 1840 },
+      { id: 2, title: "Graft", body: "The second cut always heals stranger than the first.", status: "draft", words: 620 },
+    ],
+    earnings: { adShare: 214.32, tips: 58.0, premiumSales: 96.5 },
+  },
+  {
+    id: "w2",
+    title: "Static Between Stations",
+    cover: "#3B4B7C",
+    coverAccent: "#8ED6D0",
+    genre: "Sci-Fi",
+    status: "Ongoing",
+    views: "38K",
+    likes: 890,
+    chapters: [{ id: 1, title: "Dead Air", body: "", status: "draft", words: 0 }],
+    earnings: { adShare: 41.1, tips: 12.0, premiumSales: 0 },
+  },
+];
+
+const initialWallet = {
+  readerBalance: 2.4,
+  transactions: [
+    { id: 1, label: "Watched a rewarded ad", amount: 0.05, type: "earn" },
+    { id: 2, label: "Referral bonus \u2014 @kofi_reads joined", amount: 2.0, type: "earn" },
+    { id: 3, label: "Unlocked Ch. 6 \u2014 The Sword That Remembers", amount: -0.99, type: "spend" },
+  ],
+  adsWatchedToday: 2,
+  adsDailyLimit: 5,
+  referralCode: "MARIN-J82K",
+  referralCount: 3,
+  referralEarnings: 6.0,
+};
+
+function wordCount(text) {
+  const t = text.trim();
+  return t === "" ? 0 : t.split(/\s+/).length;
+}
+
+/* ---------------------------------------------------------
+   SHARED UI PRIMITIVES
+--------------------------------------------------------- */
+
+function StatusPill({ status }) {
+  const ongoing = status === "Ongoing";
+  return (
+    <span
+      style={{
+        fontSize: 10,
+        letterSpacing: "0.06em",
+        textTransform: "uppercase",
+        padding: "3px 8px",
+        borderRadius: 999,
+        fontWeight: 600,
+        background: ongoing ? "rgba(212,162,76,0.15)" : "rgba(139,133,163,0.15)",
+        color: ongoing ? "#D4A24C" : "#8B85A3",
+        border: `1px solid ${ongoing ? "rgba(212,162,76,0.35)" : "rgba(139,133,163,0.3)"}`,
+      }}
+    >
+      {status}
+    </span>
+  );
+}
+
+function Cover({ novel, w = 64, h = 88 }) {
+  return (
+    <div
+      style={{
+        width: w,
+        height: h,
+        borderRadius: 6,
+        flexShrink: 0,
+        position: "relative",
+        overflow: "hidden",
+        background: `linear-gradient(160deg, ${novel.cover} 0%, ${novel.cover}CC 60%, #14121F 130%)`,
+        boxShadow: "0 4px 14px rgba(0,0,0,0.35)",
+      }}
+    >
+      <div
+        style={{
+          position: "absolute",
+          inset: 0,
+          background: `radial-gradient(circle at 30% 20%, ${novel.coverAccent}55, transparent 60%)`,
+        }}
+      />
+      <div
+        style={{
+          position: "absolute",
+          bottom: 6,
+          left: 6,
+          right: 6,
+          fontFamily: "'Fraunces', serif",
+          fontSize: w > 56 ? 11 : 9,
+          lineHeight: 1.15,
+          color: "#F3ECDD",
+          fontWeight: 600,
+          textShadow: "0 1px 4px rgba(0,0,0,0.6)",
+        }}
+      >
+        {novel.title.split(" ").slice(0, 4).join(" ")}
+      </div>
+    </div>
+  );
+}
+
+/* ---------------------------------------------------------
+   DISCOVER (HOME) VIEW
+--------------------------------------------------------- */
+
+function Discover({ onOpenNovel, library, toggleLibrary }) {
+  const [genre, setGenre] = useState("All");
+  const [query, setQuery] = useState("");
+
+  const filtered = useMemo(() => {
+    return NOVELS.filter((n) => {
+      const matchesGenre = genre === "All" || n.genre === genre;
+      const matchesQuery =
+        query.trim() === "" ||
+        n.title.toLowerCase().includes(query.toLowerCase()) ||
+        n.author.toLowerCase().includes(query.toLowerCase());
+      return matchesGenre && matchesQuery;
+    });
+  }, [genre, query]);
+
+  const trending = [...NOVELS].sort((a, b) => b.rating - a.rating).slice(0, 3);
+
+  return (
+    <div style={{ paddingBottom: 90 }}>
+      {/* Header / hero */}
+      <div
+        style={{
+          padding: "20px 18px 22px",
+          background:
+            "radial-gradient(120% 100% at 15% 0%, #2A2245 0%, #14121F 55%)",
+          borderBottom: "1px solid rgba(212,162,76,0.15)",
+        }}
+      >
+        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14 }}>
+          <Flame size={20} color="#D4A24C" strokeWidth={2.2} />
+          <span
+            style={{
+              fontFamily: "'Fraunces', serif",
+              fontSize: 22,
+              fontWeight: 600,
+              color: "#F3ECDD",
+              letterSpacing: "-0.01em",
+            }}
+          >
+            Lanternfic
+          </span>
+        </div>
+        <p style={{ color: "#8B85A3", fontSize: 13, margin: "0 0 16px", lineHeight: 1.5 }}>
+          One chapter left burning. Pick a story and stay up too late.
+        </p>
+
+        {/* search */}
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 8,
+            background: "rgba(255,255,255,0.06)",
+            border: "1px solid rgba(255,255,255,0.1)",
+            borderRadius: 12,
+            padding: "10px 12px",
+          }}
+        >
+          <Search size={16} color="#8B85A3" />
+          <input
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Search titles, authors..."
+            style={{
+              background: "transparent",
+              border: "none",
+              outline: "none",
+              color: "#F3ECDD",
+              fontSize: 14,
+              width: "100%",
+              fontFamily: "'Inter', sans-serif",
+            }}
+          />
+        </div>
+      </div>
+
+      {/* genre chips */}
+      <div
+        style={{
+          display: "flex",
+          gap: 8,
+          overflowX: "auto",
+          padding: "14px 18px 4px",
+          scrollbarWidth: "none",
+        }}
+      >
+        {["All", ...GENRES].map((g) => (
+          <button
+            key={g}
+            onClick={() => setGenre(g)}
+            style={{
+              flexShrink: 0,
+              padding: "7px 14px",
+              borderRadius: 999,
+              fontSize: 12.5,
+              fontWeight: 600,
+              fontFamily: "'Inter', sans-serif",
+              cursor: "pointer",
+              border: genre === g ? "1px solid #D4A24C" : "1px solid rgba(255,255,255,0.12)",
+              background: genre === g ? "rgba(212,162,76,0.15)" : "transparent",
+              color: genre === g ? "#D4A24C" : "#B4AECB",
+            }}
+          >
+            {g}
+          </button>
+        ))}
+      </div>
+
+      {/* trending rail */}
+      {genre === "All" && query === "" && (
+        <div style={{ padding: "18px 18px 4px" }}>
+          <SectionLabel icon={<Flame size={13} color="#D4A24C" />} text="Trending tonight" />
+          <div style={{ display: "flex", gap: 12, overflowX: "auto", paddingBottom: 6 }}>
+            {trending.map((n) => (
+              <div
+                key={n.id}
+                onClick={() => onOpenNovel(n)}
+                style={{ cursor: "pointer", width: 96, flexShrink: 0 }}
+              >
+                <Cover novel={n} w={96} h={132} />
+                <div style={{ fontSize: 11, color: "#F3ECDD", marginTop: 6, fontWeight: 500, lineHeight: 1.3 }}>
+                  {n.title}
+                </div>
+                <div style={{ display: "flex", alignItems: "center", gap: 3, marginTop: 2 }}>
+                  <Star size={10} color="#D4A24C" fill="#D4A24C" />
+                  <span style={{ fontSize: 10.5, color: "#8B85A3" }}>{n.rating}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* full list */}
+      <div style={{ padding: "18px 18px 0" }}>
+        <SectionLabel icon={<BookOpen size={13} color="#D4A24C" />} text={genre === "All" ? "All stories" : genre} />
+        <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+          {filtered.map((n) => (
+            <div
+              key={n.id}
+              onClick={() => onOpenNovel(n)}
+              style={{
+                display: "flex",
+                gap: 12,
+                cursor: "pointer",
+                background: "rgba(255,255,255,0.03)",
+                border: "1px solid rgba(255,255,255,0.06)",
+                borderRadius: 12,
+                padding: 10,
+              }}
+            >
+              <Cover novel={n} />
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div
+                  style={{
+                    fontFamily: "'Fraunces', serif",
+                    fontSize: 15,
+                    color: "#F3ECDD",
+                    fontWeight: 600,
+                    marginBottom: 2,
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  {n.title}
+                </div>
+                <div style={{ fontSize: 11.5, color: "#8B85A3", marginBottom: 6 }}>by {n.author}</div>
+                <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+                  <StatusPill status={n.status} />
+                  <span style={{ fontSize: 11, color: "#8B85A3", display: "flex", alignItems: "center", gap: 3 }}>
+                    <Star size={11} color="#D4A24C" fill="#D4A24C" /> {n.rating}
+                  </span>
+                  <span style={{ fontSize: 11, color: "#8B85A3" }}>{n.reads} reads</span>
+                </div>
+              </div>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  toggleLibrary(n.id);
+                }}
+                aria-label={library.includes(n.id) ? "Remove from library" : "Add to library"}
+                style={{
+                  alignSelf: "flex-start",
+                  background: "transparent",
+                  border: "none",
+                  cursor: "pointer",
+                  padding: 4,
+                }}
+              >
+                <Bookmark
+                  size={18}
+                  color={library.includes(n.id) ? "#D4A24C" : "#5A5470"}
+                  fill={library.includes(n.id) ? "#D4A24C" : "none"}
+                />
+              </button>
+            </div>
+          ))}
+          {filtered.length === 0 && (
+            <div style={{ color: "#8B85A3", fontSize: 13, padding: "20px 4px", textAlign: "center" }}>
+              Nothing matches yet. Try a different search or genre.
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function SectionLabel({ icon, text }) {
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 10 }}>
+      {icon}
+      <span
+        style={{
+          fontSize: 11,
+          textTransform: "uppercase",
+          letterSpacing: "0.08em",
+          color: "#B4AECB",
+          fontWeight: 700,
+          fontFamily: "'Inter', sans-serif",
+        }}
+      >
+        {text}
+      </span>
+    </div>
+  );
+}
+
+/* ---------------------------------------------------------
+   NOVEL DETAIL VIEW
+--------------------------------------------------------- */
+
+function NovelDetail({ novel, onBack, onReadChapter, library, toggleLibrary, progress, unlockedChapters, onOpenTip }) {
+  const chapters = useMemo(() => genChapters(novel), [novel]);
+  const lastRead = progress[novel.id];
+  const unlocked = unlockedChapters[novel.id] || [];
+
+  return (
+    <div style={{ paddingBottom: 40 }}>
+      <div
+        style={{
+          padding: "16px 18px 24px",
+          background: `linear-gradient(180deg, ${novel.cover}55 0%, #14121F 85%)`,
+        }}
+      >
+        <button onClick={onBack} style={backBtnStyle}>
+          <ChevronLeft size={18} color="#F3ECDD" />
+        </button>
+        <div style={{ display: "flex", gap: 16, marginTop: 14 }}>
+          <Cover novel={novel} w={92} h={128} />
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <h1
+              style={{
+                fontFamily: "'Fraunces', serif",
+                fontSize: 20,
+                color: "#F3ECDD",
+                margin: "0 0 4px",
+                lineHeight: 1.2,
+              }}
+            >
+              {novel.title}
+            </h1>
+            <div style={{ fontSize: 12.5, color: "#B4AECB", marginBottom: 8 }}>by {novel.author}</div>
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 8 }}>
+              <StatusPill status={novel.status} />
+              <span style={{ fontSize: 11, color: "#8B85A3", display: "flex", alignItems: "center", gap: 3 }}>
+                <Star size={11} color="#D4A24C" fill="#D4A24C" /> {novel.rating}
+              </span>
+            </div>
+            <div style={{ fontSize: 11.5, color: "#8B85A3" }}>
+              {novel.chapters} chapters &middot; {novel.reads} reads &middot; updated {novel.updated}
+            </div>
+          </div>
+        </div>
+
+        <p style={{ fontSize: 13.5, color: "#D9D4E8", lineHeight: 1.6, marginTop: 16 }}>{novel.synopsis}</p>
+
+        <div style={{ display: "flex", gap: 10, marginTop: 16 }}>
+          <button
+            onClick={() => onReadChapter(novel, chapters[lastRead ? Math.min(lastRead, chapters.length - 1) : 0])}
+            style={{
+              flex: 1,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: 8,
+              background: "#D4A24C",
+              color: "#14121F",
+              border: "none",
+              borderRadius: 10,
+              padding: "12px 0",
+              fontWeight: 700,
+              fontSize: 14,
+              cursor: "pointer",
+              fontFamily: "'Inter', sans-serif",
+            }}
+          >
+            <BookOpen size={16} />
+            {lastRead ? `Continue Ch. ${lastRead + 1}` : "Start Reading"}
+          </button>
+          <button
+            onClick={() => toggleLibrary(novel.id)}
+            style={{
+              width: 46,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              background: "rgba(255,255,255,0.06)",
+              border: "1px solid rgba(255,255,255,0.12)",
+              borderRadius: 10,
+              cursor: "pointer",
+            }}
+          >
+            <Bookmark
+              size={18}
+              color={library.includes(novel.id) ? "#D4A24C" : "#B4AECB"}
+              fill={library.includes(novel.id) ? "#D4A24C" : "none"}
+            />
+          </button>
+          <button
+            onClick={() => onOpenTip(novel)}
+            style={{
+              width: 46,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              background: "rgba(212,162,76,0.12)",
+              border: "1px solid rgba(212,162,76,0.3)",
+              borderRadius: 10,
+              cursor: "pointer",
+            }}
+            aria-label="Tip the author"
+          >
+            <Gift size={18} color="#D4A24C" />
+          </button>
+        </div>
+      </div>
+
+      <div style={{ padding: "18px 18px 0" }}>
+        <SectionLabel icon={<List size={13} color="#D4A24C" />} text={`Chapters (${chapters.length} of ${novel.chapters})`} />
+        <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+          {chapters.map((c, i) => {
+            const isRead = lastRead !== undefined && i <= lastRead;
+            const isLocked = c.premium && !unlocked.includes(c.num);
+            return (
+              <button
+                key={c.num}
+                onClick={() => onReadChapter(novel, c)}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  background: "transparent",
+                  border: "none",
+                  borderBottom: "1px solid rgba(255,255,255,0.06)",
+                  padding: "12px 2px",
+                  cursor: "pointer",
+                  textAlign: "left",
+                  width: "100%",
+                }}
+              >
+                <div style={{ minWidth: 0, display: "flex", alignItems: "center", gap: 6 }}>
+                  {isLocked && <Lock size={12} color="#D4A24C" style={{ flexShrink: 0 }} />}
+                  <div>
+                    <div
+                      style={{
+                        fontSize: 13,
+                        fontFamily: "'Inter', sans-serif",
+                        color: isRead ? "#726C8C" : "#F3ECDD",
+                        fontWeight: 500,
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                        whiteSpace: "nowrap",
+                      }}
+                    >
+                      Ch. {c.num} &middot; {c.title}
+                    </div>
+                    <div style={{ fontSize: 10.5, color: "#5A5470", marginTop: 2 }}>{c.words} words</div>
+                  </div>
+                </div>
+                {isLocked ? (
+                  <span style={{ fontSize: 11, color: "#D4A24C", fontWeight: 700, flexShrink: 0, marginLeft: 8 }}>
+                    ${c.price.toFixed(2)}
+                  </span>
+                ) : isRead ? (
+                  <span style={{ fontSize: 10, color: "#5A5470", flexShrink: 0, marginLeft: 8 }}>read</span>
+                ) : (
+                  <ChevronRight size={15} color="#5A5470" style={{ flexShrink: 0, marginLeft: 8 }} />
+                )}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+const backBtnStyle = {
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "center",
+  width: 34,
+  height: 34,
+  borderRadius: 999,
+  background: "rgba(255,255,255,0.08)",
+  border: "1px solid rgba(255,255,255,0.1)",
+  cursor: "pointer",
+};
+
+/* ---------------------------------------------------------
+   READER VIEW
+--------------------------------------------------------- */
+
+function Reader({ novel, chapter, chapters, onBack, onChangeChapter, markRead, isLocked, walletBalance, onUnlock }) {
+  const [fontSize, setFontSize] = useState(17);
+  const [night, setNight] = useState(false);
+  const scrollRef = useRef(null);
+
+  const idx = chapters.findIndex((c) => c.num === chapter.num);
+  const hasPrev = idx > 0;
+  const hasNext = idx < chapters.length - 1;
+
+  useEffect(() => {
+    if (!isLocked) markRead(novel.id, idx);
+    if (scrollRef.current) scrollRef.current.scrollTop = 0;
+  }, [chapter.num, isLocked]);
+
+  const paperBg = night ? "#1A1826" : "#F3ECDD";
+  const paperText = night ? "#D9D4E8" : "#2B2440";
+  const paperMuted = night ? "#726C8C" : "#8B7F6B";
+
+  return (
+    <div style={{ background: paperBg, minHeight: "100%", display: "flex", flexDirection: "column" }}>
+      {/* top bar */}
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          padding: "12px 14px",
+          borderBottom: `1px solid ${night ? "rgba(255,255,255,0.08)" : "rgba(43,36,64,0.1)"}`,
+          position: "sticky",
+          top: 0,
+          background: paperBg,
+          zIndex: 5,
+        }}
+      >
+        <button onClick={onBack} style={{ ...backBtnStyle, background: "transparent", border: "none" }}>
+          <ChevronLeft size={20} color={paperText} />
+        </button>
+        <div style={{ textAlign: "center", flex: 1, minWidth: 0, padding: "0 8px" }}>
+          <div
+            style={{
+              fontSize: 11.5,
+              color: paperMuted,
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+              whiteSpace: "nowrap",
+              fontFamily: "'Inter', sans-serif",
+            }}
+          >
+            {novel.title}
+          </div>
+        </div>
+        <div style={{ display: "flex", gap: 4 }}>
+          <button
+            onClick={() => setFontSize((s) => Math.max(14, s - 1))}
+            style={iconBtnStyle}
+            aria-label="Decrease text size"
+          >
+            <Minus size={14} color={paperText} />
+          </button>
+          <button
+            onClick={() => setFontSize((s) => Math.min(24, s + 1))}
+            style={iconBtnStyle}
+            aria-label="Increase text size"
+          >
+            <Plus size={14} color={paperText} />
+          </button>
+          <button onClick={() => setNight((n) => !n)} style={iconBtnStyle} aria-label="Toggle night mode">
+            {night ? <Sun size={15} color={paperText} /> : <Moon size={15} color={paperText} />}
+          </button>
+        </div>
+      </div>
+
+      {/* chapter content */}
+      <div ref={scrollRef} style={{ flex: 1, overflowY: "auto", padding: "22px 20px 40px" }}>
+        <div style={{ fontSize: 11, color: "#D4A24C", fontWeight: 700, letterSpacing: "0.06em", marginBottom: 6 }}>
+          CHAPTER {chapter.num}
+        </div>
+        <h2
+          style={{
+            fontFamily: "'Fraunces', serif",
+            fontSize: 22,
+            color: paperText,
+            margin: "0 0 20px",
+            lineHeight: 1.3,
+          }}
+        >
+          {chapter.title}
+        </h2>
+        {isLocked ? (
+          <div
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              textAlign: "center",
+              padding: "36px 16px",
+              border: `1px dashed ${night ? "rgba(255,255,255,0.15)" : "rgba(43,36,64,0.18)"}`,
+              borderRadius: 14,
+            }}
+          >
+            <div
+              style={{
+                width: 48,
+                height: 48,
+                borderRadius: "50%",
+                background: "rgba(212,162,76,0.15)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                marginBottom: 14,
+              }}
+            >
+              <Lock size={20} color="#D4A24C" />
+            </div>
+            <div style={{ fontFamily: "'Fraunces', serif", fontSize: 16, color: paperText, marginBottom: 6 }}>
+              This is a premium chapter
+            </div>
+            <p style={{ fontSize: 12.5, color: paperMuted, lineHeight: 1.6, marginBottom: 18, maxWidth: 280 }}>
+              Unlocking sends part of the price straight to {novel.author}. Your wallet balance: $
+              {walletBalance.toFixed(2)}.
+            </p>
+            <button
+              onClick={() => onUnlock(novel, chapter)}
+              disabled={walletBalance < chapter.price}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 8,
+                background: "#D4A24C",
+                color: "#14121F",
+                border: "none",
+                borderRadius: 10,
+                padding: "11px 20px",
+                fontWeight: 700,
+                fontSize: 13.5,
+                cursor: "pointer",
+                opacity: walletBalance < chapter.price ? 0.45 : 1,
+                fontFamily: "'Inter', sans-serif",
+              }}
+            >
+              <Unlock size={15} /> Unlock for ${chapter.price.toFixed(2)}
+            </button>
+            {walletBalance < chapter.price && (
+              <div style={{ fontSize: 11, color: "#D98B76", marginTop: 10 }}>
+                Not enough balance — earn more from Profile, or add funds.
+              </div>
+            )}
+          </div>
+        ) : (
+          <>
+            {PARAGRAPHS.map((p, i) => (
+              <p
+                key={i}
+                style={{
+                  fontFamily: "'Source Serif 4', 'Georgia', serif",
+                  fontSize,
+                  lineHeight: 1.75,
+                  color: paperText,
+                  marginBottom: 18,
+                }}
+              >
+                {p}
+              </p>
+            ))}
+            <div style={{ fontSize: 12, color: paperMuted, textAlign: "center", marginTop: 20, fontStyle: "italic" }}>
+              — end of chapter {chapter.num} —
+            </div>
+          </>
+        )}
+      </div>
+
+      {/* nav footer */}
+      <div
+        style={{
+          display: "flex",
+          gap: 10,
+          padding: "12px 16px",
+          borderTop: `1px solid ${night ? "rgba(255,255,255,0.08)" : "rgba(43,36,64,0.1)"}`,
+          background: paperBg,
+        }}
+      >
+        <button
+          disabled={!hasPrev}
+          onClick={() => hasPrev && onChangeChapter(chapters[idx - 1])}
+          style={{ ...navBtnStyle(night), opacity: hasPrev ? 1 : 0.35 }}
+        >
+          <ChevronLeft size={15} /> Prev
+        </button>
+        <button
+          disabled={!hasNext}
+          onClick={() => hasNext && onChangeChapter(chapters[idx + 1])}
+          style={{ ...navBtnStyle(night, true), opacity: hasNext ? 1 : 0.35 }}
+        >
+          Next <ChevronRight size={15} />
+        </button>
+      </div>
+    </div>
+  );
+}
+
+const iconBtnStyle = {
+  width: 28,
+  height: 28,
+  borderRadius: 999,
+  border: "none",
+  background: "rgba(120,110,150,0.12)",
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  cursor: "pointer",
+};
+
+function navBtnStyle(night, primary) {
+  return {
+    flex: 1,
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+    padding: "11px 0",
+    borderRadius: 10,
+    border: "none",
+    cursor: "pointer",
+    fontWeight: 600,
+    fontSize: 13,
+    fontFamily: "'Inter', sans-serif",
+    background: primary ? "#D4A24C" : night ? "rgba(255,255,255,0.08)" : "rgba(43,36,64,0.08)",
+    color: primary ? "#14121F" : night ? "#D9D4E8" : "#2B2440",
+  };
+}
+
+/* ---------------------------------------------------------
+   LIBRARY VIEW
+--------------------------------------------------------- */
+
+function Library({ library, onOpenNovel, progress }) {
+  const novels = NOVELS.filter((n) => library.includes(n.id));
+  return (
+    <div style={{ padding: "20px 18px 100px" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
+        <Bookmark size={18} color="#D4A24C" />
+        <h1 style={{ fontFamily: "'Fraunces', serif", fontSize: 20, color: "#F3ECDD", margin: 0 }}>Your Library</h1>
+      </div>
+      <p style={{ fontSize: 12.5, color: "#8B85A3", margin: "4px 0 20px" }}>
+        {novels.length === 0 ? "Nothing saved yet." : `${novels.length} story${novels.length > 1 ? "ies" : ""} saved`}
+      </p>
+      {novels.length === 0 && (
+        <div
+          style={{
+            border: "1px dashed rgba(255,255,255,0.15)",
+            borderRadius: 12,
+            padding: "28px 16px",
+            textAlign: "center",
+            color: "#726C8C",
+            fontSize: 13,
+          }}
+        >
+          Tap the bookmark icon on any story to keep it here.
+        </div>
+      )}
+      <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+        {novels.map((n) => {
+          const p = progress[n.id];
+          return (
+            <div
+              key={n.id}
+              onClick={() => onOpenNovel(n)}
+              style={{
+                display: "flex",
+                gap: 12,
+                cursor: "pointer",
+                background: "rgba(255,255,255,0.03)",
+                border: "1px solid rgba(255,255,255,0.06)",
+                borderRadius: 12,
+                padding: 10,
+              }}
+            >
+              <Cover novel={n} />
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontFamily: "'Fraunces', serif", fontSize: 14.5, color: "#F3ECDD", fontWeight: 600 }}>
+                  {n.title}
+                </div>
+                <div style={{ fontSize: 11.5, color: "#8B85A3", margin: "3px 0 8px" }}>by {n.author}</div>
+                <div style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 11, color: "#D4A24C" }}>
+                  <Clock size={11} />
+                  {p !== undefined ? `Continue Ch. ${p + 1}` : "Not started"}
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+/* ---------------------------------------------------------
+   PROFILE VIEW
+--------------------------------------------------------- */
+
+const USER = {
+  name: "Marín Osei",
+  handle: "@marin.reads",
+  joined: "Reading since Mar 2024",
+};
+
+const BADGES = [
+  { icon: Flame, label: "7-day streak", color: "#D4A24C" },
+  { icon: BookMarked, label: "Completionist", color: "#8ED6D0" },
+  { icon: Moon, label: "Night Owl", color: "#B5A0E8" },
+];
+
+function StatBlock({ value, label }) {
+  return (
+    <div style={{ flex: 1, textAlign: "center" }}>
+      <div style={{ fontFamily: "'Fraunces', serif", fontSize: 20, color: "#F3ECDD", fontWeight: 600 }}>{value}</div>
+      <div style={{ fontSize: 10.5, color: "#8B85A3", marginTop: 2 }}>{label}</div>
+    </div>
+  );
+}
+
+function SettingsRow({ icon: Icon, label, sublabel, last }) {
+  return (
+    <button
+      style={{
+        display: "flex",
+        alignItems: "center",
+        gap: 12,
+        width: "100%",
+        background: "transparent",
+        border: "none",
+        borderBottom: last ? "none" : "1px solid rgba(255,255,255,0.06)",
+        padding: "13px 2px",
+        cursor: "pointer",
+        textAlign: "left",
+      }}
+    >
+      <div
+        style={{
+          width: 32,
+          height: 32,
+          borderRadius: 9,
+          background: "rgba(212,162,76,0.12)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          flexShrink: 0,
+        }}
+      >
+        <Icon size={15} color="#D4A24C" />
+      </div>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ fontSize: 13.5, color: "#F3ECDD", fontWeight: 500 }}>{label}</div>
+        {sublabel && <div style={{ fontSize: 11, color: "#8B85A3", marginTop: 1 }}>{sublabel}</div>}
+      </div>
+      <ChevronRightIcon size={16} color="#5A5470" />
+    </button>
+  );
+}
+
+function Profile({ library, progress, wallet, onOpenWallet }) {
+  const chaptersRead = Object.values(progress).reduce((sum, idx) => sum + idx + 1, 0);
+
+  return (
+    <div style={{ padding: "24px 18px 100px" }}>
+      {/* identity */}
+      <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 18 }}>
+        <div
+          style={{
+            width: 60,
+            height: 60,
+            borderRadius: "50%",
+            background: "linear-gradient(160deg, #D4A24C 0%, #B5482F 100%)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            flexShrink: 0,
+            boxShadow: "0 4px 14px rgba(212,162,76,0.25)",
+          }}
+        >
+          <span style={{ fontFamily: "'Fraunces', serif", fontSize: 22, fontWeight: 600, color: "#14121F" }}>
+            {USER.name.split(" ").map((n) => n[0]).join("")}
+          </span>
+        </div>
+        <div style={{ minWidth: 0 }}>
+          <div style={{ fontFamily: "'Fraunces', serif", fontSize: 18, color: "#F3ECDD", fontWeight: 600 }}>
+            {USER.name}
+          </div>
+          <div style={{ fontSize: 12, color: "#8B85A3", marginTop: 2 }}>{USER.handle}</div>
+          <div style={{ fontSize: 11, color: "#5A5470", marginTop: 3 }}>{USER.joined}</div>
+        </div>
+      </div>
+
+      {/* wallet summary */}
+      <button
+        onClick={onOpenWallet}
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 12,
+          width: "100%",
+          background: "linear-gradient(160deg, rgba(212,162,76,0.16), rgba(212,162,76,0.03))",
+          border: "1px solid rgba(212,162,76,0.3)",
+          borderRadius: 12,
+          padding: "13px 14px",
+          marginBottom: 22,
+          cursor: "pointer",
+          textAlign: "left",
+        }}
+      >
+        <div
+          style={{
+            width: 34,
+            height: 34,
+            borderRadius: 9,
+            background: "rgba(212,162,76,0.18)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            flexShrink: 0,
+          }}
+        >
+          <WalletIcon size={16} color="#D4A24C" />
+        </div>
+        <div style={{ flex: 1 }}>
+          <div style={{ fontSize: 13, color: "#F3ECDD", fontWeight: 600 }}>Wallet</div>
+          <div style={{ fontSize: 11, color: "#8B85A3", marginTop: 1 }}>${wallet.readerBalance.toFixed(2)} balance</div>
+        </div>
+        <ChevronRightIcon size={16} color="#D4A24C" />
+      </button>
+
+      {/* stats */}
+      <div
+        style={{
+          display: "flex",
+          background: "rgba(255,255,255,0.03)",
+          border: "1px solid rgba(255,255,255,0.06)",
+          borderRadius: 12,
+          padding: "16px 8px",
+          marginBottom: 22,
+        }}
+      >
+        <StatBlock value={chaptersRead} label="Chapters read" />
+        <StatBlock value={library.length} label="In library" />
+        <StatBlock value="7" label="Day streak" />
+      </div>
+
+      {/* badges */}
+      <SectionLabel icon={<Award size={13} color="#D4A24C" />} text="Badges" />
+      <div style={{ display: "flex", gap: 10, marginBottom: 24 }}>
+        {BADGES.map((b) => (
+          <div
+            key={b.label}
+            style={{
+              flex: 1,
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              gap: 6,
+              background: "rgba(255,255,255,0.03)",
+              border: "1px solid rgba(255,255,255,0.06)",
+              borderRadius: 12,
+              padding: "14px 6px",
+            }}
+          >
+            <b.icon size={18} color={b.color} />
+            <span style={{ fontSize: 10, color: "#B4AECB", textAlign: "center", lineHeight: 1.3 }}>{b.label}</span>
+          </div>
+        ))}
+      </div>
+
+      {/* settings */}
+      <SectionLabel icon={<User size={13} color="#D4A24C" />} text="Account" />
+      <div
+        style={{
+          background: "rgba(255,255,255,0.03)",
+          border: "1px solid rgba(255,255,255,0.06)",
+          borderRadius: 12,
+          padding: "2px 12px",
+          marginBottom: 20,
+        }}
+      >
+        <SettingsRow icon={Bell} label="Notifications" sublabel="Updates for followed stories" />
+        <SettingsRow icon={Type} label="Reading preferences" sublabel="Font, size, night mode default" />
+        <SettingsRow icon={HelpCircle} label="Help & feedback" last />
+      </div>
+
+      <button
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          gap: 8,
+          width: "100%",
+          background: "rgba(181,72,47,0.12)",
+          border: "1px solid rgba(181,72,47,0.3)",
+          borderRadius: 10,
+          padding: "12px 0",
+          color: "#D98B76",
+          fontWeight: 600,
+          fontSize: 13,
+          cursor: "pointer",
+          fontFamily: "'Inter', sans-serif",
+        }}
+      >
+        <LogOut size={15} /> Sign out
+      </button>
+    </div>
+  );
+}
+
+/* ---------------------------------------------------------
+   AUTHOR STUDIO
+--------------------------------------------------------- */
+
+function Studio({ works, onOpenWork, onNewStory, wallet, onOpenWallet }) {
+  const totalViews = works.reduce((sum, w) => sum + parseFloat(w.views), 0);
+  const totalDrafts = works.reduce((sum, w) => sum + w.chapters.filter((c) => c.status === "draft").length, 0);
+  const writerTotal = works.reduce((sum, w) => sum + w.earnings.adShare + w.earnings.tips + w.earnings.premiumSales, 0);
+
+  return (
+    <div style={{ padding: "20px 18px 100px" }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <PenSquare size={18} color="#D4A24C" />
+          <h1 style={{ fontFamily: "'Fraunces', serif", fontSize: 20, color: "#F3ECDD", margin: 0 }}>
+            Author Studio
+          </h1>
+        </div>
+      </div>
+      <p style={{ fontSize: 12.5, color: "#8B85A3", margin: "4px 0 18px" }}>Write, edit, and publish your stories.</p>
+
+      <button
+        onClick={onOpenWallet}
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 12,
+          width: "100%",
+          background: "linear-gradient(160deg, rgba(212,162,76,0.16), rgba(212,162,76,0.03))",
+          border: "1px solid rgba(212,162,76,0.3)",
+          borderRadius: 12,
+          padding: "13px 14px",
+          marginBottom: 18,
+          cursor: "pointer",
+          textAlign: "left",
+        }}
+      >
+        <div
+          style={{
+            width: 34,
+            height: 34,
+            borderRadius: 9,
+            background: "rgba(212,162,76,0.18)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            flexShrink: 0,
+          }}
+        >
+          <WalletIcon size={16} color="#D4A24C" />
+        </div>
+        <div style={{ flex: 1 }}>
+          <div style={{ fontSize: 13, color: "#F3ECDD", fontWeight: 600 }}>Writer earnings</div>
+          <div style={{ fontSize: 11, color: "#8B85A3", marginTop: 1 }}>${writerTotal.toFixed(2)} across all stories</div>
+        </div>
+        <ChevronRightIcon size={16} color="#D4A24C" />
+      </button>
+
+      <div
+        style={{
+          display: "flex",
+          background: "rgba(255,255,255,0.03)",
+          border: "1px solid rgba(255,255,255,0.06)",
+          borderRadius: 12,
+          padding: "16px 8px",
+          marginBottom: 18,
+        }}
+      >
+        <StatBlock value={works.length} label="Stories" />
+        <StatBlock value={`${totalViews.toFixed(0)}K`} label="Total views" />
+        <StatBlock value={totalDrafts} label="Drafts" />
+      </div>
+
+      <button
+        onClick={onNewStory}
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          gap: 8,
+          width: "100%",
+          background: "#D4A24C",
+          color: "#14121F",
+          border: "none",
+          borderRadius: 10,
+          padding: "13px 0",
+          fontWeight: 700,
+          fontSize: 14,
+          cursor: "pointer",
+          marginBottom: 22,
+          fontFamily: "'Inter', sans-serif",
+        }}
+      >
+        <Plus size={16} /> New story
+      </button>
+
+      <SectionLabel icon={<BookOpen size={13} color="#D4A24C" />} text="Your stories" />
+      <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+        {works.map((w) => {
+          const drafts = w.chapters.filter((c) => c.status === "draft").length;
+          return (
+            <div
+              key={w.id}
+              onClick={() => onOpenWork(w)}
+              style={{
+                display: "flex",
+                gap: 12,
+                cursor: "pointer",
+                background: "rgba(255,255,255,0.03)",
+                border: "1px solid rgba(255,255,255,0.06)",
+                borderRadius: 12,
+                padding: 10,
+              }}
+            >
+              <Cover novel={w} />
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontFamily: "'Fraunces', serif", fontSize: 14.5, color: "#F3ECDD", fontWeight: 600 }}>
+                  {w.title}
+                </div>
+                <div style={{ fontSize: 11, color: "#8B85A3", margin: "3px 0 8px" }}>
+                  {w.chapters.length} chapter{w.chapters.length !== 1 ? "s" : ""} &middot; {w.genre}
+                </div>
+                <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+                  <span style={{ fontSize: 11, color: "#8B85A3", display: "flex", alignItems: "center", gap: 3 }}>
+                    <Eye size={11} /> {w.views}
+                  </span>
+                  <span style={{ fontSize: 11, color: "#8B85A3", display: "flex", alignItems: "center", gap: 3 }}>
+                    <Heart size={11} /> {w.likes}
+                  </span>
+                  {drafts > 0 && (
+                    <span style={{ fontSize: 10.5, color: "#D4A24C", fontWeight: 600 }}>{drafts} draft{drafts > 1 ? "s" : ""}</span>
+                  )}
+                </div>
+              </div>
+              <ChevronRightIcon size={16} color="#5A5470" style={{ alignSelf: "center", flexShrink: 0 }} />
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function WorkManage({ work, onBack, onNewChapter, onEditChapter, onDeleteChapter }) {
+  return (
+    <div style={{ paddingBottom: 40 }}>
+      <div
+        style={{
+          padding: "16px 18px 20px",
+          background: `linear-gradient(180deg, ${work.cover}55 0%, #14121F 85%)`,
+        }}
+      >
+        <button onClick={onBack} style={backBtnStyle}>
+          <ChevronLeft size={18} color="#F3ECDD" />
+        </button>
+        <div style={{ display: "flex", gap: 16, marginTop: 14 }}>
+          <Cover novel={work} w={80} h={110} />
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <h1 style={{ fontFamily: "'Fraunces', serif", fontSize: 19, color: "#F3ECDD", margin: "0 0 6px" }}>
+              {work.title}
+            </h1>
+            <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 6 }}>
+              <span style={{ fontSize: 11, color: "#8B85A3", display: "flex", alignItems: "center", gap: 3 }}>
+                <Eye size={11} /> {work.views}
+              </span>
+              <span style={{ fontSize: 11, color: "#8B85A3", display: "flex", alignItems: "center", gap: 3 }}>
+                <Heart size={11} /> {work.likes}
+              </span>
+            </div>
+            <div style={{ fontSize: 11.5, color: "#8B85A3" }}>{work.genre} &middot; {work.status}</div>
+          </div>
+        </div>
+      </div>
+
+      <div style={{ padding: "18px 18px 0" }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
+          <SectionLabel icon={<List size={13} color="#D4A24C" />} text={`Chapters (${work.chapters.length})`} />
+          <button
+            onClick={onNewChapter}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 5,
+              background: "rgba(212,162,76,0.15)",
+              border: "1px solid rgba(212,162,76,0.35)",
+              color: "#D4A24C",
+              borderRadius: 8,
+              padding: "6px 10px",
+              fontSize: 11.5,
+              fontWeight: 700,
+              cursor: "pointer",
+            }}
+          >
+            <Plus size={13} /> New chapter
+          </button>
+        </div>
+
+        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          {work.chapters.map((c) => (
+            <div
+              key={c.id}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 10,
+                background: "rgba(255,255,255,0.03)",
+                border: "1px solid rgba(255,255,255,0.06)",
+                borderRadius: 10,
+                padding: "10px 12px",
+              }}
+            >
+              <div
+                onClick={() => onEditChapter(c)}
+                style={{ flex: 1, minWidth: 0, cursor: "pointer" }}
+              >
+                <div style={{ fontSize: 13, color: "#F3ECDD", fontWeight: 500, marginBottom: 3 }}>
+                  Ch. {c.id} &middot; {c.title || "Untitled"}
+                </div>
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <span
+                    style={{
+                      fontSize: 9.5,
+                      textTransform: "uppercase",
+                      letterSpacing: "0.05em",
+                      fontWeight: 700,
+                      color: c.status === "published" ? "#7FBF9E" : "#D4A24C",
+                    }}
+                  >
+                    {c.status}
+                  </span>
+                  <span style={{ fontSize: 10.5, color: "#726C8C" }}>{wordCount(c.body)} words</span>
+                </div>
+              </div>
+              <button
+                onClick={() => onEditChapter(c)}
+                style={{ ...iconBtnStyle, background: "rgba(212,162,76,0.12)" }}
+                aria-label="Edit chapter"
+              >
+                <PenSquare size={13} color="#D4A24C" />
+              </button>
+              <button
+                onClick={() => onDeleteChapter(c.id)}
+                style={{ ...iconBtnStyle, background: "rgba(181,72,47,0.12)" }}
+                aria-label="Delete chapter"
+              >
+                <Trash2 size={13} color="#D98B76" />
+              </button>
+            </div>
+          ))}
+          {work.chapters.length === 0 && (
+            <div style={{ color: "#726C8C", fontSize: 12.5, textAlign: "center", padding: "20px 4px" }}>
+              No chapters yet. Start your first one.
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function Editor({ chapter, onBack, onSave }) {
+  const [title, setTitle] = useState(chapter.title || "");
+  const [body, setBody] = useState(chapter.body || "");
+  const [saved, setSaved] = useState(false);
+
+  useEffect(() => {
+    if (!saved) return;
+    const t = setTimeout(() => setSaved(false), 1600);
+    return () => clearTimeout(t);
+  }, [saved]);
+
+  return (
+    <div style={{ background: "#F3ECDD", minHeight: "100%", display: "flex", flexDirection: "column" }}>
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          padding: "12px 14px",
+          borderBottom: "1px solid rgba(43,36,64,0.1)",
+          position: "sticky",
+          top: 0,
+          background: "#F3ECDD",
+          zIndex: 5,
+        }}
+      >
+        <button onClick={onBack} style={{ ...backBtnStyle, background: "transparent", border: "none" }}>
+          <ChevronLeft size={20} color="#2B2440" />
+        </button>
+        <div style={{ fontSize: 11.5, color: "#8B7F6B", display: "flex", alignItems: "center", gap: 5 }}>
+          {saved ? (
+            <>
+              <Check size={13} color="#5C7C5C" /> Draft saved
+            </>
+          ) : (
+            `${wordCount(body)} words`
+          )}
+        </div>
+        <button
+          onClick={() => {
+            onSave({ ...chapter, title, body, status: "draft" });
+            setSaved(true);
+          }}
+          style={{ ...iconBtnStyle, background: "rgba(43,36,64,0.08)" }}
+          aria-label="Save draft"
+        >
+          <FileText size={14} color="#2B2440" />
+        </button>
+      </div>
+
+      <div style={{ flex: 1, overflowY: "auto", padding: "20px 20px 16px" }}>
+        <input
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+          placeholder="Chapter title"
+          style={{
+            width: "100%",
+            border: "none",
+            outline: "none",
+            background: "transparent",
+            fontFamily: "'Fraunces', serif",
+            fontSize: 21,
+            fontWeight: 600,
+            color: "#2B2440",
+            marginBottom: 14,
+          }}
+        />
+        <textarea
+          value={body}
+          onChange={(e) => setBody(e.target.value)}
+          placeholder="Start writing..."
+          style={{
+            width: "100%",
+            minHeight: 320,
+            border: "none",
+            outline: "none",
+            resize: "vertical",
+            background: "transparent",
+            fontFamily: "'Source Serif 4', 'Georgia', serif",
+            fontSize: 16.5,
+            lineHeight: 1.75,
+            color: "#2B2440",
+          }}
+        />
+      </div>
+
+      <div
+        style={{
+          display: "flex",
+          gap: 10,
+          padding: "12px 16px",
+          borderTop: "1px solid rgba(43,36,64,0.1)",
+          background: "#F3ECDD",
+        }}
+      >
+        <button
+          onClick={() => onSave({ ...chapter, title, body, status: "draft" })}
+          style={{ ...navBtnStyle(false), }}
+        >
+          Save draft
+        </button>
+        <button
+          onClick={() => onSave({ ...chapter, title, body, status: "published" })}
+          disabled={!title.trim() || !body.trim()}
+          style={{ ...navBtnStyle(false, true), opacity: !title.trim() || !body.trim() ? 0.4 : 1 }}
+        >
+          <Send size={14} /> Publish
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/* ---------------------------------------------------------
+   TIP MODAL
+--------------------------------------------------------- */
+
+function TipModal({ novel, walletBalance, onClose, onTip }) {
+  const [amount, setAmount] = useState(3);
+  const presets = [1, 3, 5, 10];
+  const insufficient = walletBalance < amount;
+
+  return (
+    <div
+      style={{
+        position: "fixed",
+        inset: 0,
+        background: "rgba(10,9,16,0.7)",
+        display: "flex",
+        alignItems: "flex-end",
+        justifyContent: "center",
+        zIndex: 50,
+      }}
+      onClick={onClose}
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          width: "100%",
+          maxWidth: 480,
+          background: "#1A1826",
+          borderRadius: "18px 18px 0 0",
+          padding: "18px 20px 26px",
+          border: "1px solid rgba(255,255,255,0.08)",
+        }}
+      >
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <Gift size={17} color="#D4A24C" />
+            <span style={{ fontFamily: "'Fraunces', serif", fontSize: 17, color: "#F3ECDD" }}>Tip {novel.author}</span>
+          </div>
+          <button onClick={onClose} style={{ ...iconBtnStyle, background: "rgba(255,255,255,0.08)" }}>
+            <X size={14} color="#F3ECDD" />
+          </button>
+        </div>
+        <p style={{ fontSize: 12, color: "#8B85A3", margin: "4px 0 18px" }}>
+          Tips go straight to the author, on top of what they already earn from your reads.
+        </p>
+
+        <div style={{ display: "flex", gap: 8, marginBottom: 14 }}>
+          {presets.map((p) => (
+            <button
+              key={p}
+              onClick={() => setAmount(p)}
+              style={{
+                flex: 1,
+                padding: "12px 0",
+                borderRadius: 10,
+                border: amount === p ? "1px solid #D4A24C" : "1px solid rgba(255,255,255,0.12)",
+                background: amount === p ? "rgba(212,162,76,0.15)" : "transparent",
+                color: amount === p ? "#D4A24C" : "#B4AECB",
+                fontWeight: 700,
+                fontSize: 14,
+                cursor: "pointer",
+              }}
+            >
+              ${p}
+            </button>
+          ))}
+        </div>
+
+        <div style={{ fontSize: 11.5, color: "#8B85A3", marginBottom: 16 }}>
+          Your wallet balance: ${walletBalance.toFixed(2)}
+        </div>
+
+        <button
+          onClick={() => onTip(novel, amount)}
+          disabled={insufficient}
+          style={{
+            width: "100%",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: 8,
+            background: "#D4A24C",
+            color: "#14121F",
+            border: "none",
+            borderRadius: 10,
+            padding: "13px 0",
+            fontWeight: 700,
+            fontSize: 14,
+            cursor: "pointer",
+            opacity: insufficient ? 0.45 : 1,
+            fontFamily: "'Inter', sans-serif",
+          }}
+        >
+          <Gift size={15} /> Send ${amount} tip
+        </button>
+        {insufficient && (
+          <div style={{ fontSize: 11, color: "#D98B76", marginTop: 10, textAlign: "center" }}>
+            Not enough balance — earn more from your Wallet, or add funds.
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/* ---------------------------------------------------------
+   WALLET VIEW
+--------------------------------------------------------- */
+
+function Wallet({ wallet, authorWorks, onBack, onWatchAd, onCopyReferral, onRequestPayout }) {
+  const [payoutMsg, setPayoutMsg] = useState(false);
+  const writerTotal = authorWorks.reduce(
+    (sum, w) => sum + w.earnings.adShare + w.earnings.tips + w.earnings.premiumSales,
+    0
+  );
+  const adsLeft = wallet.adsDailyLimit - wallet.adsWatchedToday;
+
+  return (
+    <div style={{ paddingBottom: 60 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "16px 18px 6px" }}>
+        <button onClick={onBack} style={backBtnStyle}>
+          <ChevronLeft size={18} color="#F3ECDD" />
+        </button>
+        <h1 style={{ fontFamily: "'Fraunces', serif", fontSize: 19, color: "#F3ECDD", margin: 0 }}>Wallet</h1>
+      </div>
+
+      <div style={{ padding: "14px 18px 0" }}>
+        {/* balances */}
+        <div style={{ display: "flex", gap: 10, marginBottom: 22 }}>
+          <div
+            style={{
+              flex: 1,
+              background: "linear-gradient(160deg, rgba(212,162,76,0.18), rgba(212,162,76,0.04))",
+              border: "1px solid rgba(212,162,76,0.3)",
+              borderRadius: 14,
+              padding: "16px 14px",
+            }}
+          >
+            <div style={{ fontSize: 10.5, color: "#D4A24C", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em" }}>
+              Reader balance
+            </div>
+            <div style={{ fontFamily: "'Fraunces', serif", fontSize: 24, color: "#F3ECDD", marginTop: 6 }}>
+              ${wallet.readerBalance.toFixed(2)}
+            </div>
+          </div>
+          <div
+            style={{
+              flex: 1,
+              background: "rgba(255,255,255,0.03)",
+              border: "1px solid rgba(255,255,255,0.08)",
+              borderRadius: 14,
+              padding: "16px 14px",
+            }}
+          >
+            <div style={{ fontSize: 10.5, color: "#8ED6D0", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em" }}>
+              Writer earnings
+            </div>
+            <div style={{ fontFamily: "'Fraunces', serif", fontSize: 24, color: "#F3ECDD", marginTop: 6 }}>
+              ${writerTotal.toFixed(2)}
+            </div>
+          </div>
+        </div>
+
+        <button
+          onClick={() => {
+            onRequestPayout();
+            setPayoutMsg(true);
+          }}
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: 8,
+            width: "100%",
+            background: "rgba(255,255,255,0.06)",
+            border: "1px solid rgba(255,255,255,0.14)",
+            borderRadius: 10,
+            padding: "12px 0",
+            color: "#F3ECDD",
+            fontWeight: 600,
+            fontSize: 13.5,
+            cursor: "pointer",
+            marginBottom: payoutMsg ? 8 : 22,
+            fontFamily: "'Inter', sans-serif",
+          }}
+        >
+          <ArrowDownToLine size={15} /> Request payout to bank / PayPal
+        </button>
+        {payoutMsg && (
+          <div style={{ fontSize: 11.5, color: "#7FBF9E", marginBottom: 22, textAlign: "center" }}>
+            Payout requested — funds typically arrive in 2–3 business days.
+          </div>
+        )}
+
+        {/* ways to earn (reader) */}
+        <SectionLabel icon={<TrendingUp size={13} color="#D4A24C" />} text="Ways to earn as a reader" />
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 12,
+            background: "rgba(255,255,255,0.03)",
+            border: "1px solid rgba(255,255,255,0.06)",
+            borderRadius: 12,
+            padding: 14,
+            marginBottom: 10,
+          }}
+        >
+          <div
+            style={{
+              width: 36,
+              height: 36,
+              borderRadius: 10,
+              background: "rgba(212,162,76,0.12)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              flexShrink: 0,
+            }}
+          >
+            <PlayCircle size={17} color="#D4A24C" />
+          </div>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontSize: 13, color: "#F3ECDD", fontWeight: 600 }}>Watch a rewarded ad</div>
+            <div style={{ fontSize: 11, color: "#8B85A3", marginTop: 1 }}>
+              Earn $0.05 &middot; {adsLeft > 0 ? `${adsLeft} left today` : "come back tomorrow"}
+            </div>
+          </div>
+          <button
+            onClick={onWatchAd}
+            disabled={adsLeft <= 0}
+            style={{
+              background: "#D4A24C",
+              color: "#14121F",
+              border: "none",
+              borderRadius: 8,
+              padding: "8px 12px",
+              fontSize: 12,
+              fontWeight: 700,
+              cursor: "pointer",
+              opacity: adsLeft <= 0 ? 0.4 : 1,
+              flexShrink: 0,
+            }}
+          >
+            Watch
+          </button>
+        </div>
+
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 12,
+            background: "rgba(255,255,255,0.03)",
+            border: "1px solid rgba(255,255,255,0.06)",
+            borderRadius: 12,
+            padding: 14,
+            marginBottom: 22,
+          }}
+        >
+          <div
+            style={{
+              width: 36,
+              height: 36,
+              borderRadius: 10,
+              background: "rgba(142,214,208,0.12)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              flexShrink: 0,
+            }}
+          >
+            <Share2 size={16} color="#8ED6D0" />
+          </div>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: 13, color: "#F3ECDD", fontWeight: 600 }}>Refer a friend</div>
+            <div style={{ fontSize: 11, color: "#8B85A3", marginTop: 1 }}>
+              {wallet.referralCount} joined &middot; ${wallet.referralEarnings.toFixed(2)} earned &middot; code {wallet.referralCode}
+            </div>
+          </div>
+          <button
+            onClick={onCopyReferral}
+            style={{
+              background: "rgba(142,214,208,0.15)",
+              border: "1px solid rgba(142,214,208,0.35)",
+              color: "#8ED6D0",
+              borderRadius: 8,
+              padding: "8px 12px",
+              fontSize: 12,
+              fontWeight: 700,
+              cursor: "pointer",
+              flexShrink: 0,
+            }}
+          >
+            Copy link
+          </button>
+        </div>
+
+        {/* writer breakdown */}
+        <SectionLabel icon={<PenSquare size={13} color="#D4A24C" />} text="Writer earnings breakdown" />
+        <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 22 }}>
+          {authorWorks.map((w) => {
+            const total = w.earnings.adShare + w.earnings.tips + w.earnings.premiumSales;
+            return (
+              <div
+                key={w.id}
+                style={{
+                  background: "rgba(255,255,255,0.03)",
+                  border: "1px solid rgba(255,255,255,0.06)",
+                  borderRadius: 12,
+                  padding: 12,
+                }}
+              >
+                <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
+                  <span style={{ fontSize: 13, color: "#F3ECDD", fontWeight: 600 }}>{w.title}</span>
+                  <span style={{ fontSize: 13, color: "#D4A24C", fontWeight: 700 }}>${total.toFixed(2)}</span>
+                </div>
+                <div style={{ display: "flex", gap: 14, fontSize: 10.5, color: "#8B85A3" }}>
+                  <span>Ad share ${w.earnings.adShare.toFixed(2)}</span>
+                  <span>Tips ${w.earnings.tips.toFixed(2)}</span>
+                  <span>Premium ${w.earnings.premiumSales.toFixed(2)}</span>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* transactions */}
+        <SectionLabel icon={<DollarSign size={13} color="#D4A24C" />} text="Recent activity" />
+        <div style={{ display: "flex", flexDirection: "column" }}>
+          {wallet.transactions.map((t) => (
+            <div
+              key={t.id}
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                padding: "10px 2px",
+                borderBottom: "1px solid rgba(255,255,255,0.06)",
+              }}
+            >
+              <span style={{ fontSize: 12.5, color: "#D9D4E8" }}>{t.label}</span>
+              <span style={{ fontSize: 12.5, fontWeight: 700, color: t.type === "earn" ? "#7FBF9E" : "#D98B76" }}>
+                {t.amount > 0 ? "+" : ""}
+                {t.amount.toFixed(2)}
+              </span>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ---------------------------------------------------------
+   ROOT APP
+--------------------------------------------------------- */
+
+export default function App() {
+  const [view, setView] = useState("discover"); // discover | detail | reader | library
+  const [activeNovel, setActiveNovel] = useState(null);
+  const [activeChapter, setActiveChapter] = useState(null);
+  const [library, setLibrary] = useState(["n1", "n3"]);
+  const [progress, setProgress] = useState({ n1: 2 });
+  const [tab, setTab] = useState("discover");
+
+  // author studio state
+  const [authorWorks, setAuthorWorks] = useState(initialAuthorWorks);
+  const [activeWork, setActiveWork] = useState(null);
+  const [activeDraft, setActiveDraft] = useState(null);
+
+  // wallet / earnings state
+  const [wallet, setWallet] = useState(initialWallet);
+  const [unlockedChapters, setUnlockedChapters] = useState({ n1: [1, 2, 3, 4, 5] });
+  const [tipTarget, setTipTarget] = useState(null);
+
+  const addTransaction = (label, amount, type) => {
+    setWallet((w) => ({
+      ...w,
+      transactions: [{ id: Date.now(), label, amount, type }, ...w.transactions],
+    }));
+  };
+
+  const watchAd = () => {
+    setWallet((w) => {
+      if (w.adsWatchedToday >= w.adsDailyLimit) return w;
+      return { ...w, readerBalance: w.readerBalance + 0.05, adsWatchedToday: w.adsWatchedToday + 1 };
+    });
+    addTransaction("Watched a rewarded ad", 0.05, "earn");
+  };
+
+  const copyReferral = () => {
+    const link = `https://lanternfic.app/join?ref=${wallet.referralCode}`;
+    if (navigator.clipboard) navigator.clipboard.writeText(link).catch(() => {});
+  };
+
+  const requestPayout = () => {
+    addTransaction("Payout requested", 0, "earn");
+  };
+
+  const unlockChapter = (novel, chapter) => {
+    if (wallet.readerBalance < chapter.price) return;
+    setWallet((w) => ({ ...w, readerBalance: w.readerBalance - chapter.price }));
+    setUnlockedChapters((u) => ({
+      ...u,
+      [novel.id]: [...(u[novel.id] || []), chapter.num],
+    }));
+    addTransaction(`Unlocked Ch. ${chapter.num} \u2014 ${novel.title}`, -chapter.price, "spend");
+  };
+
+  const tipAuthor = (novel, amount) => {
+    if (wallet.readerBalance < amount) return;
+    setWallet((w) => ({ ...w, readerBalance: w.readerBalance - amount }));
+    addTransaction(`Tipped ${novel.author} \u2014 ${novel.title}`, -amount, "spend");
+    setTipTarget(null);
+  };
+
+  const openWork = (work) => {
+    setActiveWork(work);
+    setView("workManage");
+  };
+
+  const newStory = () => {
+    const id = `w${authorWorks.length + 1}${Date.now() % 1000}`;
+    const palette = ["#7C5CBF", "#2E7D6B", "#A64D6B", "#B5482F", "#5C7C5C"];
+    const work = {
+      id,
+      title: "Untitled Story",
+      cover: palette[authorWorks.length % palette.length],
+      coverAccent: "#F3ECDD",
+      genre: "Fantasy",
+      status: "Ongoing",
+      views: "0",
+      likes: 0,
+      chapters: [],
+      earnings: { adShare: 0, tips: 0, premiumSales: 0 },
+    };
+    setAuthorWorks((ws) => [...ws, work]);
+    setActiveWork(work);
+    setView("workManage");
+  };
+
+  const newChapter = () => {
+    const nextId = activeWork.chapters.length ? Math.max(...activeWork.chapters.map((c) => c.id)) + 1 : 1;
+    setActiveDraft({ id: nextId, title: "", body: "", status: "draft" });
+    setView("editor");
+  };
+
+  const editChapter = (chapter) => {
+    setActiveDraft(chapter);
+    setView("editor");
+  };
+
+  const deleteChapter = (chapterId) => {
+    setAuthorWorks((ws) =>
+      ws.map((w) => (w.id === activeWork.id ? { ...w, chapters: w.chapters.filter((c) => c.id !== chapterId) } : w))
+    );
+    setActiveWork((w) => ({ ...w, chapters: w.chapters.filter((c) => c.id !== chapterId) }));
+  };
+
+  const saveChapter = (chapter) => {
+    setAuthorWorks((ws) =>
+      ws.map((w) => {
+        if (w.id !== activeWork.id) return w;
+        const exists = w.chapters.some((c) => c.id === chapter.id);
+        const chapters = exists
+          ? w.chapters.map((c) => (c.id === chapter.id ? chapter : c))
+          : [...w.chapters, chapter];
+        const updated = { ...w, chapters };
+        setActiveWork(updated);
+        return updated;
+      })
+    );
+    if (chapter.status === "published") setView("workManage");
+  };
+
+  const toggleLibrary = (id) => {
+    setLibrary((lib) => (lib.includes(id) ? lib.filter((x) => x !== id) : [...lib, id]));
+  };
+
+  const markRead = (novelId, idx) => {
+    setProgress((p) => ({ ...p, [novelId]: Math.max(p[novelId] ?? -1, idx) }));
+  };
+
+  const openNovel = (novel) => {
+    setActiveNovel(novel);
+    setView("detail");
+  };
+
+  const readChapter = (novel, chapter) => {
+    setActiveNovel(novel);
+    setActiveChapter(chapter);
+    setView("reader");
+  };
+
+  const chapters = activeNovel ? genChapters(activeNovel) : [];
+
+  return (
+    <div
+      style={{
+        fontFamily: "'Inter', sans-serif",
+        background: "#14121F",
+        minHeight: "100vh",
+        maxWidth: 480,
+        margin: "0 auto",
+        position: "relative",
+      }}
+    >
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Fraunces:wght@500;600;700&family=Inter:wght@400;500;600;700&family=Source+Serif+4:wght@400;500&display=swap');
+        * { box-sizing: border-box; }
+        ::-webkit-scrollbar { display: none; }
+      `}</style>
+
+      {view === "discover" && <Discover onOpenNovel={openNovel} library={library} toggleLibrary={toggleLibrary} />}
+      {view === "library" && <Library library={library} onOpenNovel={openNovel} progress={progress} />}
+      {view === "profile" && (
+        <Profile library={library} progress={progress} wallet={wallet} onOpenWallet={() => setView("wallet")} />
+      )}
+      {view === "studio" && (
+        <Studio
+          works={authorWorks}
+          onOpenWork={openWork}
+          onNewStory={newStory}
+          wallet={wallet}
+          onOpenWallet={() => setView("wallet")}
+        />
+      )}
+      {view === "wallet" && (
+        <Wallet
+          wallet={wallet}
+          authorWorks={authorWorks}
+          onBack={() => setView(tab)}
+          onWatchAd={watchAd}
+          onCopyReferral={copyReferral}
+          onRequestPayout={requestPayout}
+        />
+      )}
+      {view === "workManage" && activeWork && (
+        <WorkManage
+          work={activeWork}
+          onBack={() => setView("studio")}
+          onNewChapter={newChapter}
+          onEditChapter={editChapter}
+          onDeleteChapter={deleteChapter}
+        />
+      )}
+      {view === "editor" && activeDraft && (
+        <Editor chapter={activeDraft} onBack={() => setView("workManage")} onSave={saveChapter} />
+      )}
+      {view === "detail" && activeNovel && (
+        <NovelDetail
+          novel={activeNovel}
+          onBack={() => setView(tab)}
+          onReadChapter={readChapter}
+          library={library}
+          toggleLibrary={toggleLibrary}
+          progress={progress}
+          unlockedChapters={unlockedChapters}
+          onOpenTip={setTipTarget}
+        />
+      )}
+      {view === "reader" && activeNovel && activeChapter && (
+        <Reader
+          novel={activeNovel}
+          chapter={activeChapter}
+          chapters={chapters}
+          onBack={() => setView("detail")}
+          onChangeChapter={setActiveChapter}
+          markRead={markRead}
+          isLocked={activeChapter.premium && !(unlockedChapters[activeNovel.id] || []).includes(activeChapter.num)}
+          walletBalance={wallet.readerBalance}
+          onUnlock={unlockChapter}
+        />
+      )}
+      {tipTarget && (
+        <TipModal
+          novel={tipTarget}
+          walletBalance={wallet.readerBalance}
+          onClose={() => setTipTarget(null)}
+          onTip={tipAuthor}
+        />
+      )}
+
+      {/* bottom nav */}
+      {view !== "reader" && view !== "editor" && view !== "workManage" && view !== "wallet" && (
+        <div
+          style={{
+            position: "fixed",
+            bottom: 0,
+            left: "50%",
+            transform: "translateX(-50%)",
+            width: "100%",
+            maxWidth: 480,
+            display: "flex",
+            background: "#1A1826",
+            borderTop: "1px solid rgba(255,255,255,0.08)",
+            padding: "10px 0 14px",
+          }}
+        >
+          {[
+            { key: "discover", label: "Discover", icon: Flame },
+            { key: "library", label: "Library", icon: Bookmark },
+            { key: "studio", label: "Write", icon: PenSquare },
+            { key: "profile", label: "Profile", icon: User },
+          ].map(({ key, label, icon: Icon }) => (
+            <button
+              key={key}
+              onClick={() => {
+                setTab(key);
+                setView(key);
+              }}
+              style={{
+                flex: 1,
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                gap: 3,
+                background: "transparent",
+                border: "none",
+                cursor: "pointer",
+              }}
+            >
+              <Icon size={19} color={tab === key ? "#D4A24C" : "#726C8C"} fill={tab === key && key === "library" ? "#D4A24C" : "none"} />
+              <span style={{ fontSize: 10.5, color: tab === key ? "#D4A24C" : "#726C8C", fontWeight: 600 }}>{label}</span>
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
