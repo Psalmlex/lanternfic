@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useRef, useEffect } from "react";
-import { Search, Flame, BookOpen, ChevronLeft, ChevronRight, Bookmark, Star, Clock, List, X, Sun, Moon, Type, Minus, Plus, User, Award, BookMarked, Bell, HelpCircle, LogOut, ChevronRight as ChevronRightIcon, PenSquare, Trash2, Send, Eye, Heart, FileText, Check, Wallet as WalletIcon, DollarSign, Gift, Lock, Unlock, Share2, PlayCircle, TrendingUp, ArrowDownToLine } from "lucide-react";
+import { Search, Flame, BookOpen, ChevronLeft, ChevronRight, Bookmark, Star, Clock, List, X, Sun, Moon, Type, Minus, Plus, User, Award, BookMarked, Bell, HelpCircle, LogOut, ChevronRight as ChevronRightIcon, PenSquare, Trash2, Send, Eye, Heart, FileText, Check, Wallet as WalletIcon, DollarSign, Gift, Lock, Unlock, Share2, PlayCircle, TrendingUp, ArrowDownToLine, ShieldCheck, Flag, Users, BarChart3, Ban, CheckCircle2, XCircle, AlertTriangle } from "lucide-react";
 
 /* ---------------------------------------------------------
    MOCK DATA
@@ -179,6 +179,47 @@ const initialWallet = {
   referralCount: 3,
   referralEarnings: 6.0,
 };
+
+const initialAdminUsers = [
+  { id: "u1", name: "Marín Osei", handle: "@marin.reads", role: "Reader & Writer", status: "active", joined: "Mar 2024" },
+  { id: "u2", name: "Kofi Boateng", handle: "@kofi_reads", role: "Reader", status: "active", joined: "Jan 2025" },
+  { id: "u3", name: "Priya Nandakumar", handle: "@priya_writes", role: "Writer", status: "active", joined: "Jun 2023" },
+  { id: "u4", name: "Devon Marsh", handle: "@devonm", role: "Reader", status: "suspended", joined: "Feb 2026" },
+  { id: "u5", name: "Lian Zhao", handle: "@lianz", role: "Writer", status: "active", joined: "Sep 2024" },
+];
+
+const initialFlags = [
+  {
+    id: "f1",
+    type: "Chapter",
+    title: "Ch. 14 \u2014 The Cartographer's Wife",
+    reason: "Reported for plagiarism claim",
+    reporter: "@lianz",
+    status: "pending",
+  },
+  {
+    id: "f2",
+    type: "Comment",
+    title: "Comment on Nine Lives of the Ashfall Sect",
+    reason: "Reported for harassment",
+    reporter: "@kofi_reads",
+    status: "pending",
+  },
+  {
+    id: "f3",
+    type: "Story",
+    title: "Signal From the Long Dark",
+    reason: "Reported for copyright concern",
+    reporter: "@priya_writes",
+    status: "pending",
+  },
+];
+
+const initialPayoutRequests = [
+  { id: "p1", user: "Priya Nandakumar", handle: "@priya_writes", amount: 214.5, method: "PayPal", status: "pending" },
+  { id: "p2", user: "Lian Zhao", handle: "@lianz", amount: 96.2, method: "Bank transfer", status: "pending" },
+  { id: "p3", user: "Marín Osei", handle: "@marin.reads", amount: 8.4, method: "PayPal", status: "pending" },
+];
 
 function wordCount(text) {
   const t = text.trim();
@@ -991,9 +1032,10 @@ function StatBlock({ value, label }) {
   );
 }
 
-function SettingsRow({ icon: Icon, label, sublabel, last }) {
+function SettingsRow({ icon: Icon, label, sublabel, last, onClick }) {
   return (
     <button
+      onClick={onClick}
       style={{
         display: "flex",
         alignItems: "center",
@@ -1006,8 +1048,7 @@ function SettingsRow({ icon: Icon, label, sublabel, last }) {
         cursor: "pointer",
         textAlign: "left",
       }}
-    >
-      <div
+    >      <div
         style={{
           width: 32,
           height: 32,
@@ -1030,7 +1071,7 @@ function SettingsRow({ icon: Icon, label, sublabel, last }) {
   );
 }
 
-function Profile({ library, progress, wallet, onOpenWallet }) {
+function Profile({ library, progress, wallet, onOpenWallet, onOpenAdmin }) {
   const chaptersRead = Object.values(progress).reduce((sum, idx) => sum + idx + 1, 0);
 
   return (
@@ -1154,6 +1195,7 @@ function Profile({ library, progress, wallet, onOpenWallet }) {
       >
         <SettingsRow icon={Bell} label="Notifications" sublabel="Updates for followed stories" />
         <SettingsRow icon={Type} label="Reading preferences" sublabel="Font, size, night mode default" />
+        <SettingsRow icon={ShieldCheck} label="Admin panel" sublabel="Moderation, payouts, users" onClick={onOpenAdmin} />
         <SettingsRow icon={HelpCircle} label="Help & feedback" last />
       </div>
 
@@ -1909,6 +1951,289 @@ function Wallet({ wallet, authorWorks, onBack, onWatchAd, onCopyReferral, onRequ
 }
 
 /* ---------------------------------------------------------
+   ADMIN PANEL
+--------------------------------------------------------- */
+
+function AdminTabButton({ active, onClick, icon: Icon, label, badge }) {
+  return (
+    <button
+      onClick={onClick}
+      style={{
+        flex: 1,
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        gap: 4,
+        padding: "10px 4px",
+        background: active ? "rgba(212,162,76,0.12)" : "transparent",
+        border: "none",
+        borderBottom: active ? "2px solid #D4A24C" : "2px solid transparent",
+        cursor: "pointer",
+        position: "relative",
+      }}
+    >
+      <Icon size={16} color={active ? "#D4A24C" : "#8B85A3"} />
+      <span style={{ fontSize: 10, fontWeight: 600, color: active ? "#D4A24C" : "#8B85A3" }}>{label}</span>
+      {badge > 0 && (
+        <span
+          style={{
+            position: "absolute",
+            top: 4,
+            right: "28%",
+            background: "#B5482F",
+            color: "#F3ECDD",
+            fontSize: 9,
+            fontWeight: 700,
+            borderRadius: 999,
+            minWidth: 14,
+            height: 14,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: "0 3px",
+          }}
+        >
+          {badge}
+        </span>
+      )}
+    </button>
+  );
+}
+
+function Admin({ onBack, adminUsers, setAdminUsers, flags, setFlags, payoutRequests, setPayoutRequests, authorWorks, wallet }) {
+  const [tab, setTab] = useState("overview");
+
+  const pendingFlags = flags.filter((f) => f.status === "pending").length;
+  const pendingPayouts = payoutRequests.filter((p) => p.status === "pending").length;
+  const totalPlatformEarnings = authorWorks.reduce(
+    (sum, w) => sum + w.earnings.adShare + w.earnings.tips + w.earnings.premiumSales,
+    0
+  );
+
+  const resolveFlag = (id, action) => {
+    setFlags((fs) => fs.map((f) => (f.id === id ? { ...f, status: action } : f)));
+  };
+
+  const resolvePayout = (id, action) => {
+    setPayoutRequests((ps) => ps.map((p) => (p.id === id ? { ...p, status: action } : p)));
+  };
+
+  const toggleUserStatus = (id) => {
+    setAdminUsers((us) =>
+      us.map((u) => (u.id === id ? { ...u, status: u.status === "active" ? "suspended" : "active" } : u))
+    );
+  };
+
+  return (
+    <div style={{ paddingBottom: 40 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "16px 18px 14px" }}>
+        <button onClick={onBack} style={backBtnStyle}>
+          <ChevronLeft size={18} color="#F3ECDD" />
+        </button>
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <ShieldCheck size={17} color="#D4A24C" />
+          <h1 style={{ fontFamily: "'Fraunces', serif", fontSize: 19, color: "#F3ECDD", margin: 0 }}>Admin Panel</h1>
+        </div>
+      </div>
+
+      <div style={{ display: "flex", borderBottom: "1px solid rgba(255,255,255,0.08)", marginBottom: 18 }}>
+        <AdminTabButton active={tab === "overview"} onClick={() => setTab("overview")} icon={BarChart3} label="Overview" />
+        <AdminTabButton
+          active={tab === "moderation"}
+          onClick={() => setTab("moderation")}
+          icon={Flag}
+          label="Moderation"
+          badge={pendingFlags}
+        />
+        <AdminTabButton
+          active={tab === "payouts"}
+          onClick={() => setTab("payouts")}
+          icon={DollarSign}
+          label="Payouts"
+          badge={pendingPayouts}
+        />
+        <AdminTabButton active={tab === "users"} onClick={() => setTab("users")} icon={Users} label="Users" />
+      </div>
+
+      <div style={{ padding: "0 18px" }}>
+        {tab === "overview" && (
+          <>
+            <div style={{ display: "flex", gap: 10, marginBottom: 12 }}>
+              <div style={{ flex: 1, background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 12, padding: "14px 12px" }}>
+                <div style={{ fontSize: 10.5, color: "#8B85A3" }}>Total users</div>
+                <div style={{ fontFamily: "'Fraunces', serif", fontSize: 20, color: "#F3ECDD", marginTop: 4 }}>{adminUsers.length}</div>
+              </div>
+              <div style={{ flex: 1, background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 12, padding: "14px 12px" }}>
+                <div style={{ fontSize: 10.5, color: "#8B85A3" }}>Live stories</div>
+                <div style={{ fontFamily: "'Fraunces', serif", fontSize: 20, color: "#F3ECDD", marginTop: 4 }}>{NOVELS.length + authorWorks.length}</div>
+              </div>
+            </div>
+            <div style={{ display: "flex", gap: 10, marginBottom: 20 }}>
+              <div style={{ flex: 1, background: "rgba(212,162,76,0.1)", border: "1px solid rgba(212,162,76,0.3)", borderRadius: 12, padding: "14px 12px" }}>
+                <div style={{ fontSize: 10.5, color: "#D4A24C" }}>Platform earnings tracked</div>
+                <div style={{ fontFamily: "'Fraunces', serif", fontSize: 20, color: "#F3ECDD", marginTop: 4 }}>${totalPlatformEarnings.toFixed(2)}</div>
+              </div>
+              <div style={{ flex: 1, background: "rgba(181,72,47,0.1)", border: "1px solid rgba(181,72,47,0.25)", borderRadius: 12, padding: "14px 12px" }}>
+                <div style={{ fontSize: 10.5, color: "#D98B76" }}>Needs attention</div>
+                <div style={{ fontFamily: "'Fraunces', serif", fontSize: 20, color: "#F3ECDD", marginTop: 4 }}>{pendingFlags + pendingPayouts}</div>
+              </div>
+            </div>
+
+            <SectionLabel icon={<AlertTriangle size={13} color="#D4A24C" />} text="Needs review" />
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              {pendingFlags === 0 && pendingPayouts === 0 && (
+                <div style={{ color: "#726C8C", fontSize: 12.5, textAlign: "center", padding: "16px 4px" }}>
+                  Nothing pending — all clear.
+                </div>
+              )}
+              {pendingFlags > 0 && (
+                <button
+                  onClick={() => setTab("moderation")}
+                  style={{ display: "flex", justifyContent: "space-between", alignItems: "center", background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 10, padding: "12px 14px", cursor: "pointer" }}
+                >
+                  <span style={{ fontSize: 13, color: "#F3ECDD" }}>{pendingFlags} content report{pendingFlags > 1 ? "s" : ""} pending</span>
+                  <ChevronRightIcon size={15} color="#5A5470" />
+                </button>
+              )}
+              {pendingPayouts > 0 && (
+                <button
+                  onClick={() => setTab("payouts")}
+                  style={{ display: "flex", justifyContent: "space-between", alignItems: "center", background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 10, padding: "12px 14px", cursor: "pointer" }}
+                >
+                  <span style={{ fontSize: 13, color: "#F3ECDD" }}>{pendingPayouts} payout request{pendingPayouts > 1 ? "s" : ""} pending</span>
+                  <ChevronRightIcon size={15} color="#5A5470" />
+                </button>
+              )}
+            </div>
+          </>
+        )}
+
+        {tab === "moderation" && (
+          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+            {flags.map((f) => (
+              <div key={f.id} style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 12, padding: 14 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 6 }}>
+                  <div>
+                    <div style={{ fontSize: 10, color: "#D4A24C", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em" }}>{f.type}</div>
+                    <div style={{ fontSize: 13.5, color: "#F3ECDD", fontWeight: 600, marginTop: 2 }}>{f.title}</div>
+                  </div>
+                  <span
+                    style={{
+                      fontSize: 9.5,
+                      fontWeight: 700,
+                      textTransform: "uppercase",
+                      color: f.status === "pending" ? "#D4A24C" : f.status === "removed" ? "#D98B76" : "#7FBF9E",
+                      flexShrink: 0,
+                      marginLeft: 8,
+                    }}
+                  >
+                    {f.status}
+                  </span>
+                </div>
+                <div style={{ fontSize: 12, color: "#B4AECB", marginBottom: 4 }}>{f.reason}</div>
+                <div style={{ fontSize: 11, color: "#726C8C", marginBottom: 10 }}>Reported by {f.reporter}</div>
+                {f.status === "pending" && (
+                  <div style={{ display: "flex", gap: 8 }}>
+                    <button
+                      onClick={() => resolveFlag(f.id, "dismissed")}
+                      style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 6, background: "rgba(127,191,158,0.12)", border: "1px solid rgba(127,191,158,0.3)", color: "#7FBF9E", borderRadius: 8, padding: "8px 0", fontSize: 12, fontWeight: 700, cursor: "pointer" }}
+                    >
+                      <CheckCircle2 size={13} /> Dismiss
+                    </button>
+                    <button
+                      onClick={() => resolveFlag(f.id, "removed")}
+                      style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 6, background: "rgba(181,72,47,0.12)", border: "1px solid rgba(181,72,47,0.3)", color: "#D98B76", borderRadius: 8, padding: "8px 0", fontSize: 12, fontWeight: 700, cursor: "pointer" }}
+                    >
+                      <XCircle size={13} /> Remove content
+                    </button>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+
+        {tab === "payouts" && (
+          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+            <div style={{ fontSize: 11.5, color: "#8B85A3", marginBottom: 2 }}>
+              Reader wallet on file: ${wallet.readerBalance.toFixed(2)} (demo account)
+            </div>
+            {payoutRequests.map((p) => (
+              <div key={p.id} style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 12, padding: 14 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
+                  <span style={{ fontSize: 13.5, color: "#F3ECDD", fontWeight: 600 }}>{p.user}</span>
+                  <span style={{ fontSize: 15, color: "#D4A24C", fontWeight: 700 }}>${p.amount.toFixed(2)}</span>
+                </div>
+                <div style={{ fontSize: 11.5, color: "#8B85A3", marginBottom: 10 }}>
+                  {p.handle} &middot; {p.method}
+                </div>
+                {p.status === "pending" ? (
+                  <div style={{ display: "flex", gap: 8 }}>
+                    <button
+                      onClick={() => resolvePayout(p.id, "approved")}
+                      style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 6, background: "#D4A24C", border: "none", color: "#14121F", borderRadius: 8, padding: "9px 0", fontSize: 12.5, fontWeight: 700, cursor: "pointer" }}
+                    >
+                      <CheckCircle2 size={13} /> Approve
+                    </button>
+                    <button
+                      onClick={() => resolvePayout(p.id, "denied")}
+                      style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 6, background: "rgba(181,72,47,0.12)", border: "1px solid rgba(181,72,47,0.3)", color: "#D98B76", borderRadius: 8, padding: "9px 0", fontSize: 12.5, fontWeight: 700, cursor: "pointer" }}
+                    >
+                      <XCircle size={13} /> Deny
+                    </button>
+                  </div>
+                ) : (
+                  <span style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", color: p.status === "approved" ? "#7FBF9E" : "#D98B76" }}>
+                    {p.status}
+                  </span>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+
+        {tab === "users" && (
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            {adminUsers.map((u) => (
+              <div key={u.id} style={{ display: "flex", alignItems: "center", gap: 10, background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 12, padding: "10px 12px" }}>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 13, color: "#F3ECDD", fontWeight: 600 }}>{u.name}</div>
+                  <div style={{ fontSize: 11, color: "#8B85A3", marginTop: 1 }}>
+                    {u.handle} &middot; {u.role} &middot; joined {u.joined}
+                  </div>
+                </div>
+                <span
+                  style={{
+                    fontSize: 9.5,
+                    fontWeight: 700,
+                    textTransform: "uppercase",
+                    color: u.status === "active" ? "#7FBF9E" : "#D98B76",
+                    flexShrink: 0,
+                  }}
+                >
+                  {u.status}
+                </span>
+                <button
+                  onClick={() => toggleUserStatus(u.id)}
+                  style={{
+                    ...iconBtnStyle,
+                    background: u.status === "active" ? "rgba(181,72,47,0.12)" : "rgba(127,191,158,0.12)",
+                    flexShrink: 0,
+                  }}
+                  aria-label={u.status === "active" ? "Suspend user" : "Reactivate user"}
+                >
+                  {u.status === "active" ? <Ban size={13} color="#D98B76" /> : <CheckCircle2 size={13} color="#7FBF9E" />}
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/* ---------------------------------------------------------
    ROOT APP
 --------------------------------------------------------- */
 
@@ -1929,6 +2254,11 @@ export default function App() {
   const [wallet, setWallet] = useState(initialWallet);
   const [unlockedChapters, setUnlockedChapters] = useState({ n1: [1, 2, 3, 4, 5] });
   const [tipTarget, setTipTarget] = useState(null);
+
+  // admin state
+  const [adminUsers, setAdminUsers] = useState(initialAdminUsers);
+  const [flags, setFlags] = useState(initialFlags);
+  const [payoutRequests, setPayoutRequests] = useState(initialPayoutRequests);
 
   const addTransaction = (label, amount, type) => {
     setWallet((w) => ({
@@ -2071,7 +2401,13 @@ export default function App() {
       {view === "discover" && <Discover onOpenNovel={openNovel} library={library} toggleLibrary={toggleLibrary} />}
       {view === "library" && <Library library={library} onOpenNovel={openNovel} progress={progress} />}
       {view === "profile" && (
-        <Profile library={library} progress={progress} wallet={wallet} onOpenWallet={() => setView("wallet")} />
+        <Profile
+          library={library}
+          progress={progress}
+          wallet={wallet}
+          onOpenWallet={() => setView("wallet")}
+          onOpenAdmin={() => setView("admin")}
+        />
       )}
       {view === "studio" && (
         <Studio
@@ -2090,6 +2426,19 @@ export default function App() {
           onWatchAd={watchAd}
           onCopyReferral={copyReferral}
           onRequestPayout={requestPayout}
+        />
+      )}
+      {view === "admin" && (
+        <Admin
+          onBack={() => setView("profile")}
+          adminUsers={adminUsers}
+          setAdminUsers={setAdminUsers}
+          flags={flags}
+          setFlags={setFlags}
+          payoutRequests={payoutRequests}
+          setPayoutRequests={setPayoutRequests}
+          authorWorks={authorWorks}
+          wallet={wallet}
         />
       )}
       {view === "workManage" && activeWork && (
@@ -2139,7 +2488,7 @@ export default function App() {
       )}
 
       {/* bottom nav */}
-      {view !== "reader" && view !== "editor" && view !== "workManage" && view !== "wallet" && (
+      {view !== "reader" && view !== "editor" && view !== "workManage" && view !== "wallet" && view !== "admin" && (
         <div
           style={{
             position: "fixed",
