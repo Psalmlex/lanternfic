@@ -117,7 +117,7 @@ function genChapters(novel) {
     title: CHAPTER_TITLES[i % CHAPTER_TITLES.length] + (i >= CHAPTER_TITLES.length ? ` (${i + 1})` : ""),
     words: 1800 + ((i * 137) % 900),
     premium: i >= 5,
-    price: 0.99,
+    price: 99,
   }));
 }
 
@@ -167,17 +167,17 @@ const initialAuthorWorks = [
 ];
 
 const initialWallet = {
-  readerBalance: 2.4,
+  readerPoints: 240,
   transactions: [
-    { id: 1, label: "Watched a rewarded ad", amount: 0.05, type: "earn" },
-    { id: 2, label: "Referral bonus \u2014 @kofi_reads joined", amount: 2.0, type: "earn" },
-    { id: 3, label: "Unlocked Ch. 6 \u2014 The Sword That Remembers", amount: -0.99, type: "spend" },
+    { id: 1, label: "Watched a rewarded ad", amount: 5, type: "earn" },
+    { id: 2, label: "Referral bonus \u2014 @kofi_reads joined", amount: 200, type: "earn" },
+    { id: 3, label: "Unlocked Ch. 6 \u2014 The Sword That Remembers", amount: -99, type: "spend" },
   ],
   adsWatchedToday: 2,
   adsDailyLimit: 5,
   referralCode: "MARIN-J82K",
   referralCount: 3,
-  referralEarnings: 6.0,
+  referralPoints: 600,
 };
 
 const initialAdminUsers = [
@@ -679,7 +679,7 @@ function NovelDetail({ novel, onBack, onReadChapter, library, toggleLibrary, pro
                 </div>
                 {isLocked ? (
                   <span style={{ fontSize: 11, color: "#D4A24C", fontWeight: 700, flexShrink: 0, marginLeft: 8 }}>
-                    ${c.price.toFixed(2)}
+                    {c.price} pts
                   </span>
                 ) : isRead ? (
                   <span style={{ fontSize: 10, color: "#5A5470", flexShrink: 0, marginLeft: 8 }}>read</span>
@@ -829,8 +829,7 @@ function Reader({ novel, chapter, chapters, onBack, onChangeChapter, markRead, i
               This is a premium chapter
             </div>
             <p style={{ fontSize: 12.5, color: paperMuted, lineHeight: 1.6, marginBottom: 18, maxWidth: 280 }}>
-              Unlocking sends part of the price straight to {novel.author}. Your wallet balance: $
-              {walletBalance.toFixed(2)}.
+              Unlocking spends points from your wallet. Your points balance: {walletBalance} pts.
             </p>
             <button
               onClick={() => onUnlock(novel, chapter)}
@@ -851,11 +850,11 @@ function Reader({ novel, chapter, chapters, onBack, onChangeChapter, markRead, i
                 fontFamily: "'Inter', sans-serif",
               }}
             >
-              <Unlock size={15} /> Unlock for ${chapter.price.toFixed(2)}
+              <Unlock size={15} /> Unlock for {chapter.price} pts
             </button>
             {walletBalance < chapter.price && (
               <div style={{ fontSize: 11, color: "#D98B76", marginTop: 10 }}>
-                Not enough balance — earn more from Profile, or add funds.
+                Not enough points — earn more from Profile, or watch a rewarded ad.
               </div>
             )}
           </div>
@@ -1137,7 +1136,7 @@ function Profile({ library, progress, wallet, onOpenWallet, onOpenAdmin }) {
         </div>
         <div style={{ flex: 1 }}>
           <div style={{ fontSize: 13, color: "#F3ECDD", fontWeight: 600 }}>Wallet</div>
-          <div style={{ fontSize: 11, color: "#8B85A3", marginTop: 1 }}>${wallet.readerBalance.toFixed(2)} balance</div>
+          <div style={{ fontSize: 11, color: "#8B85A3", marginTop: 1 }}>{wallet.readerPoints} pts</div>
         </div>
         <ChevronRightIcon size={16} color="#D4A24C" />
       </button>
@@ -1601,8 +1600,8 @@ function Editor({ chapter, onBack, onSave }) {
 --------------------------------------------------------- */
 
 function TipModal({ novel, walletBalance, onClose, onTip }) {
-  const [amount, setAmount] = useState(3);
-  const presets = [1, 3, 5, 10];
+  const [amount, setAmount] = useState(100);
+  const presets = [50, 100, 300, 500];
   const insufficient = walletBalance < amount;
 
   return (
@@ -1639,7 +1638,7 @@ function TipModal({ novel, walletBalance, onClose, onTip }) {
           </button>
         </div>
         <p style={{ fontSize: 12, color: "#8B85A3", margin: "4px 0 18px" }}>
-          Tips go straight to the author, on top of what they already earn from your reads.
+          Tips use points from your wallet and go straight to the author, on top of what they already earn from your reads.
         </p>
 
         <div style={{ display: "flex", gap: 8, marginBottom: 14 }}>
@@ -1655,17 +1654,17 @@ function TipModal({ novel, walletBalance, onClose, onTip }) {
                 background: amount === p ? "rgba(212,162,76,0.15)" : "transparent",
                 color: amount === p ? "#D4A24C" : "#B4AECB",
                 fontWeight: 700,
-                fontSize: 14,
+                fontSize: 13,
                 cursor: "pointer",
               }}
             >
-              ${p}
+              {p} pts
             </button>
           ))}
         </div>
 
         <div style={{ fontSize: 11.5, color: "#8B85A3", marginBottom: 16 }}>
-          Your wallet balance: ${walletBalance.toFixed(2)}
+          Your points balance: {walletBalance} pts
         </div>
 
         <button
@@ -1689,11 +1688,11 @@ function TipModal({ novel, walletBalance, onClose, onTip }) {
             fontFamily: "'Inter', sans-serif",
           }}
         >
-          <Gift size={15} /> Send ${amount} tip
+          <Gift size={15} /> Send {amount} pts tip
         </button>
         {insufficient && (
           <div style={{ fontSize: 11, color: "#D98B76", marginTop: 10, textAlign: "center" }}>
-            Not enough balance — earn more from your Wallet, or add funds.
+            Not enough points — earn more from your Wallet.
           </div>
         )}
       </div>
@@ -1723,75 +1722,29 @@ function Wallet({ wallet, authorWorks, onBack, onWatchAd, onCopyReferral, onRequ
       </div>
 
       <div style={{ padding: "14px 18px 0" }}>
-        {/* balances */}
-        <div style={{ display: "flex", gap: 10, marginBottom: 22 }}>
-          <div
-            style={{
-              flex: 1,
-              background: "linear-gradient(160deg, rgba(212,162,76,0.18), rgba(212,162,76,0.04))",
-              border: "1px solid rgba(212,162,76,0.3)",
-              borderRadius: 14,
-              padding: "16px 14px",
-            }}
-          >
-            <div style={{ fontSize: 10.5, color: "#D4A24C", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em" }}>
-              Reader balance
-            </div>
-            <div style={{ fontFamily: "'Fraunces', serif", fontSize: 24, color: "#F3ECDD", marginTop: 6 }}>
-              ${wallet.readerBalance.toFixed(2)}
-            </div>
-          </div>
-          <div
-            style={{
-              flex: 1,
-              background: "rgba(255,255,255,0.03)",
-              border: "1px solid rgba(255,255,255,0.08)",
-              borderRadius: 14,
-              padding: "16px 14px",
-            }}
-          >
-            <div style={{ fontSize: 10.5, color: "#8ED6D0", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em" }}>
-              Writer earnings
-            </div>
-            <div style={{ fontFamily: "'Fraunces', serif", fontSize: 24, color: "#F3ECDD", marginTop: 6 }}>
-              ${writerTotal.toFixed(2)}
-            </div>
-          </div>
-        </div>
-
-        <button
-          onClick={() => {
-            onRequestPayout();
-            setPayoutMsg(true);
-          }}
+        {/* points balance */}
+        <div
           style={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            gap: 8,
-            width: "100%",
-            background: "rgba(255,255,255,0.06)",
-            border: "1px solid rgba(255,255,255,0.14)",
-            borderRadius: 10,
-            padding: "12px 0",
-            color: "#F3ECDD",
-            fontWeight: 600,
-            fontSize: 13.5,
-            cursor: "pointer",
-            marginBottom: payoutMsg ? 8 : 22,
-            fontFamily: "'Inter', sans-serif",
+            background: "linear-gradient(160deg, rgba(212,162,76,0.18), rgba(212,162,76,0.04))",
+            border: "1px solid rgba(212,162,76,0.3)",
+            borderRadius: 14,
+            padding: "16px 14px",
+            marginBottom: 6,
           }}
         >
-          <ArrowDownToLine size={15} /> Request payout to bank / PayPal
-        </button>
-        {payoutMsg && (
-          <div style={{ fontSize: 11.5, color: "#7FBF9E", marginBottom: 22, textAlign: "center" }}>
-            Payout requested — funds typically arrive in 2–3 business days.
+          <div style={{ fontSize: 10.5, color: "#D4A24C", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em" }}>
+            Your points
           </div>
-        )}
+          <div style={{ fontFamily: "'Fraunces', serif", fontSize: 26, color: "#F3ECDD", marginTop: 6 }}>
+            {wallet.readerPoints} <span style={{ fontSize: 14, color: "#B4AECB" }}>pts</span>
+          </div>
+        </div>
+        <p style={{ fontSize: 11, color: "#726C8C", margin: "0 0 20px" }}>
+          Points are for in-app use only — spend them on tips and premium chapters. They can't be withdrawn as cash.
+        </p>
 
         {/* ways to earn (reader) */}
-        <SectionLabel icon={<TrendingUp size={13} color="#D4A24C" />} text="Ways to earn as a reader" />
+        <SectionLabel icon={<TrendingUp size={13} color="#D4A24C" />} text="Ways to earn points" />
         <div
           style={{
             display: "flex",
@@ -1821,7 +1774,7 @@ function Wallet({ wallet, authorWorks, onBack, onWatchAd, onCopyReferral, onRequ
           <div style={{ flex: 1 }}>
             <div style={{ fontSize: 13, color: "#F3ECDD", fontWeight: 600 }}>Watch a rewarded ad</div>
             <div style={{ fontSize: 11, color: "#8B85A3", marginTop: 1 }}>
-              Earn $0.05 &middot; {adsLeft > 0 ? `${adsLeft} left today` : "come back tomorrow"}
+              Earn 5 pts &middot; {adsLeft > 0 ? `${adsLeft} left today` : "come back tomorrow"}
             </div>
           </div>
           <button
@@ -1873,7 +1826,7 @@ function Wallet({ wallet, authorWorks, onBack, onWatchAd, onCopyReferral, onRequ
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ fontSize: 13, color: "#F3ECDD", fontWeight: 600 }}>Refer a friend</div>
             <div style={{ fontSize: 11, color: "#8B85A3", marginTop: 1 }}>
-              {wallet.referralCount} joined &middot; ${wallet.referralEarnings.toFixed(2)} earned &middot; code {wallet.referralCode}
+              {wallet.referralCount} joined &middot; {wallet.referralPoints} pts earned &middot; code {wallet.referralCode}
             </div>
           </div>
           <button
@@ -1894,8 +1847,56 @@ function Wallet({ wallet, authorWorks, onBack, onWatchAd, onCopyReferral, onRequ
           </button>
         </div>
 
-        {/* writer breakdown */}
-        <SectionLabel icon={<PenSquare size={13} color="#D4A24C" />} text="Writer earnings breakdown" />
+        {/* writer earnings (real money) */}
+        <SectionLabel icon={<PenSquare size={13} color="#D4A24C" />} text="Writer earnings" />
+        <div
+          style={{
+            background: "rgba(255,255,255,0.03)",
+            border: "1px solid rgba(255,255,255,0.08)",
+            borderRadius: 14,
+            padding: "16px 14px",
+            marginBottom: 10,
+          }}
+        >
+          <div style={{ fontSize: 10.5, color: "#8ED6D0", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em" }}>
+            Total across your stories
+          </div>
+          <div style={{ fontFamily: "'Fraunces', serif", fontSize: 24, color: "#F3ECDD", marginTop: 6 }}>
+            ${writerTotal.toFixed(2)}
+          </div>
+        </div>
+
+        <button
+          onClick={() => {
+            onRequestPayout();
+            setPayoutMsg(true);
+          }}
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: 8,
+            width: "100%",
+            background: "rgba(255,255,255,0.06)",
+            border: "1px solid rgba(255,255,255,0.14)",
+            borderRadius: 10,
+            padding: "12px 0",
+            color: "#F3ECDD",
+            fontWeight: 600,
+            fontSize: 13.5,
+            cursor: "pointer",
+            marginBottom: payoutMsg ? 8 : 20,
+            fontFamily: "'Inter', sans-serif",
+          }}
+        >
+          <ArrowDownToLine size={15} /> Request payout to bank / PayPal
+        </button>
+        {payoutMsg && (
+          <div style={{ fontSize: 11.5, color: "#7FBF9E", marginBottom: 20, textAlign: "center" }}>
+            Payout requested — funds typically arrive in 2–3 business days.
+          </div>
+        )}
+
         <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 22 }}>
           {authorWorks.map((w) => {
             const total = w.earnings.adShare + w.earnings.tips + w.earnings.premiumSales;
@@ -1924,7 +1925,7 @@ function Wallet({ wallet, authorWorks, onBack, onWatchAd, onCopyReferral, onRequ
         </div>
 
         {/* transactions */}
-        <SectionLabel icon={<DollarSign size={13} color="#D4A24C" />} text="Recent activity" />
+        <SectionLabel icon={<DollarSign size={13} color="#D4A24C" />} text="Points activity" />
         <div style={{ display: "flex", flexDirection: "column" }}>
           {wallet.transactions.map((t) => (
             <div
@@ -1940,7 +1941,7 @@ function Wallet({ wallet, authorWorks, onBack, onWatchAd, onCopyReferral, onRequ
               <span style={{ fontSize: 12.5, color: "#D9D4E8" }}>{t.label}</span>
               <span style={{ fontSize: 12.5, fontWeight: 700, color: t.type === "earn" ? "#7FBF9E" : "#D98B76" }}>
                 {t.amount > 0 ? "+" : ""}
-                {t.amount.toFixed(2)}
+                {t.amount} pts
               </span>
             </div>
           ))}
@@ -2156,7 +2157,7 @@ function Admin({ onBack, adminUsers, setAdminUsers, flags, setFlags, payoutReque
         {tab === "payouts" && (
           <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
             <div style={{ fontSize: 11.5, color: "#8B85A3", marginBottom: 2 }}>
-              Reader wallet on file: ${wallet.readerBalance.toFixed(2)} (demo account)
+              Writer payout requests — real money, reviewed manually.
             </div>
             {payoutRequests.map((p) => (
               <div key={p.id} style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 12, padding: 14 }}>
@@ -2270,9 +2271,9 @@ export default function App() {
   const watchAd = () => {
     setWallet((w) => {
       if (w.adsWatchedToday >= w.adsDailyLimit) return w;
-      return { ...w, readerBalance: w.readerBalance + 0.05, adsWatchedToday: w.adsWatchedToday + 1 };
+      return { ...w, readerPoints: w.readerPoints + 5, adsWatchedToday: w.adsWatchedToday + 1 };
     });
-    addTransaction("Watched a rewarded ad", 0.05, "earn");
+    addTransaction("Watched a rewarded ad", 5, "earn");
   };
 
   const copyReferral = () => {
@@ -2281,12 +2282,12 @@ export default function App() {
   };
 
   const requestPayout = () => {
-    addTransaction("Payout requested", 0, "earn");
+    // Writer payout requests are real money and don't touch the points ledger.
   };
 
   const unlockChapter = (novel, chapter) => {
-    if (wallet.readerBalance < chapter.price) return;
-    setWallet((w) => ({ ...w, readerBalance: w.readerBalance - chapter.price }));
+    if (wallet.readerPoints < chapter.price) return;
+    setWallet((w) => ({ ...w, readerPoints: w.readerPoints - chapter.price }));
     setUnlockedChapters((u) => ({
       ...u,
       [novel.id]: [...(u[novel.id] || []), chapter.num],
@@ -2295,8 +2296,8 @@ export default function App() {
   };
 
   const tipAuthor = (novel, amount) => {
-    if (wallet.readerBalance < amount) return;
-    setWallet((w) => ({ ...w, readerBalance: w.readerBalance - amount }));
+    if (wallet.readerPoints < amount) return;
+    setWallet((w) => ({ ...w, readerPoints: w.readerPoints - amount }));
     addTransaction(`Tipped ${novel.author} \u2014 ${novel.title}`, -amount, "spend");
     setTipTarget(null);
   };
@@ -2474,14 +2475,14 @@ export default function App() {
           onChangeChapter={setActiveChapter}
           markRead={markRead}
           isLocked={activeChapter.premium && !(unlockedChapters[activeNovel.id] || []).includes(activeChapter.num)}
-          walletBalance={wallet.readerBalance}
+          walletBalance={wallet.readerPoints}
           onUnlock={unlockChapter}
         />
       )}
       {tipTarget && (
         <TipModal
           novel={tipTarget}
-          walletBalance={wallet.readerBalance}
+          walletBalance={wallet.readerPoints}
           onClose={() => setTipTarget(null)}
           onTip={tipAuthor}
         />
