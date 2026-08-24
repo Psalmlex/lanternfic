@@ -1,0 +1,17 @@
+@import url('https://fonts.googleapis.com/css2?family=Fraunces:wght@500;600;700&family=Inter:wght@400;500;600;700&family=Source+Serif+4:wght@400;500&display=swap');
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  margin: 0;
+  background: #14121f;
+  min-height: 100%;
+}
+
+::-webkit-scrollbar {
+  display: none;
+}

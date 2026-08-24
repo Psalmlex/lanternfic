@@ -1,5 +1,7 @@
 import React, { useState, useMemo, useRef, useEffect } from "react";
+import { Routes, Route, useNavigate } from "react-router-dom";
 import { Search, Flame, BookOpen, ChevronLeft, ChevronRight, Bookmark, Star, Clock, List, X, Sun, Moon, Type, Minus, Plus, User, Award, BookMarked, Bell, HelpCircle, LogOut, ChevronRight as ChevronRightIcon, PenSquare, Trash2, Send, Eye, Heart, FileText, Check, Wallet as WalletIcon, DollarSign, Gift, Lock, Unlock, Share2, PlayCircle, TrendingUp, ArrowDownToLine, ShieldCheck, Flag, Users, BarChart3, Ban, CheckCircle2, XCircle, AlertTriangle } from "lucide-react";
+import { useLocalStorageState } from "./hooks.js";
 
 /* ---------------------------------------------------------
    MOCK DATA
@@ -711,9 +713,9 @@ const backBtnStyle = {
    READER VIEW
 --------------------------------------------------------- */
 
-function Reader({ novel, chapter, chapters, onBack, onChangeChapter, markRead, isLocked, walletBalance, onUnlock }) {
-  const [fontSize, setFontSize] = useState(17);
-  const [night, setNight] = useState(false);
+function Reader({ novel, chapter, chapters, onBack, onChangeChapter, markRead, isLocked, walletBalance, onUnlock, preferences, setPreferences }) {
+  const [fontSize, setFontSize] = useState(preferences?.defaultFontSize ?? 17);
+  const [night, setNight] = useState(preferences?.defaultNight ?? false);
   const scrollRef = useRef(null);
 
   const idx = chapters.findIndex((c) => c.num === chapter.num);
@@ -724,6 +726,13 @@ function Reader({ novel, chapter, chapters, onBack, onChangeChapter, markRead, i
     if (!isLocked) markRead(novel.id, idx);
     if (scrollRef.current) scrollRef.current.scrollTop = 0;
   }, [chapter.num, isLocked]);
+
+  // Remember the reader's latest font size / night mode choice as their default for next time
+  useEffect(() => {
+    if (setPreferences) {
+      setPreferences((p) => ({ ...p, defaultFontSize: fontSize, defaultNight: night }));
+    }
+  }, [fontSize, night]);
 
   const paperBg = night ? "#1A1826" : "#F3ECDD";
   const paperText = night ? "#D9D4E8" : "#2B2440";
@@ -1031,6 +1040,42 @@ function StatBlock({ value, label }) {
   );
 }
 
+function ToggleSwitch({ on, onClick }) {
+  return (
+    <button
+      onClick={(e) => {
+        e.stopPropagation();
+        onClick();
+      }}
+      style={{
+        width: 38,
+        height: 22,
+        borderRadius: 999,
+        border: "none",
+        background: on ? "#D4A24C" : "rgba(255,255,255,0.15)",
+        position: "relative",
+        cursor: "pointer",
+        flexShrink: 0,
+        padding: 0,
+      }}
+      aria-pressed={on}
+    >
+      <span
+        style={{
+          position: "absolute",
+          top: 2,
+          left: on ? 18 : 2,
+          width: 18,
+          height: 18,
+          borderRadius: "50%",
+          background: "#14121F",
+          transition: "left 0.15s ease",
+        }}
+      />
+    </button>
+  );
+}
+
 function SettingsRow({ icon: Icon, label, sublabel, last, onClick }) {
   return (
     <button
@@ -1070,8 +1115,9 @@ function SettingsRow({ icon: Icon, label, sublabel, last, onClick }) {
   );
 }
 
-function Profile({ library, progress, wallet, onOpenWallet, onOpenAdmin }) {
+function Profile({ library, progress, wallet, onOpenWallet, onOpenAdmin, preferences, setPreferences }) {
   const chaptersRead = Object.values(progress).reduce((sum, idx) => sum + idx + 1, 0);
+  const [prefsOpen, setPrefsOpen] = useState(false);
 
   return (
     <div style={{ padding: "24px 18px 100px" }}>
@@ -1192,10 +1238,57 @@ function Profile({ library, progress, wallet, onOpenWallet, onOpenAdmin }) {
           marginBottom: 20,
         }}
       >
-        <SettingsRow icon={Bell} label="Notifications" sublabel="Updates for followed stories" />
-        <SettingsRow icon={Type} label="Reading preferences" sublabel="Font, size, night mode default" />
+        <SettingsRow
+          icon={Bell}
+          label="Notifications"
+          sublabel={preferences.notifyUpdates ? "Updates for followed stories: On" : "Updates for followed stories: Off"}
+          onClick={() => setPreferences((p) => ({ ...p, notifyUpdates: !p.notifyUpdates }))}
+        />
+        <SettingsRow
+          icon={Type}
+          label="Reading preferences"
+          sublabel={`${preferences.defaultFontSize}px \u00b7 ${preferences.defaultNight ? "Night" : "Day"} mode default`}
+          onClick={() => setPrefsOpen((o) => !o)}
+        />
+        {prefsOpen && (
+          <div style={{ padding: "4px 2px 14px", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
+              <span style={{ fontSize: 12.5, color: "#D9D4E8" }}>Default text size</span>
+              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                <button
+                  onClick={() => setPreferences((p) => ({ ...p, defaultFontSize: Math.max(14, p.defaultFontSize - 1) }))}
+                  style={{ ...iconBtnStyle, background: "rgba(255,255,255,0.08)" }}
+                >
+                  <Minus size={12} color="#F3ECDD" />
+                </button>
+                <span style={{ fontSize: 12, color: "#F3ECDD", width: 20, textAlign: "center" }}>{preferences.defaultFontSize}</span>
+                <button
+                  onClick={() => setPreferences((p) => ({ ...p, defaultFontSize: Math.min(24, p.defaultFontSize + 1) }))}
+                  style={{ ...iconBtnStyle, background: "rgba(255,255,255,0.08)" }}
+                >
+                  <Plus size={12} color="#F3ECDD" />
+                </button>
+              </div>
+            </div>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+              <span style={{ fontSize: 12.5, color: "#D9D4E8" }}>Open chapters in night mode</span>
+              <ToggleSwitch
+                on={preferences.defaultNight}
+                onClick={() => setPreferences((p) => ({ ...p, defaultNight: !p.defaultNight }))}
+              />
+            </div>
+          </div>
+        )}
         <SettingsRow icon={ShieldCheck} label="Admin panel" sublabel="Moderation, payouts, users" onClick={onOpenAdmin} />
-        <SettingsRow icon={HelpCircle} label="Help & feedback" last />
+        <SettingsRow
+          icon={HelpCircle}
+          label="Help & feedback"
+          sublabel="Email the Lanternfic team"
+          last
+          onClick={() => {
+            window.location.href = "mailto:support@lanternfic.app?subject=Lanternfic%20feedback";
+          }}
+        />
       </div>
 
       <button
@@ -2238,28 +2331,29 @@ function Admin({ onBack, adminUsers, setAdminUsers, flags, setFlags, payoutReque
    ROOT APP
 --------------------------------------------------------- */
 
-export default function App() {
+function MainApp() {
+  const navigate = useNavigate();
   const [view, setView] = useState("discover"); // discover | detail | reader | library
   const [activeNovel, setActiveNovel] = useState(null);
   const [activeChapter, setActiveChapter] = useState(null);
-  const [library, setLibrary] = useState(["n1", "n3"]);
-  const [progress, setProgress] = useState({ n1: 2 });
+  const [library, setLibrary] = useLocalStorageState("lanternfic_library", ["n1", "n3"]);
+  const [progress, setProgress] = useLocalStorageState("lanternfic_progress", { n1: 2 });
   const [tab, setTab] = useState("discover");
+  const [preferences, setPreferences] = useLocalStorageState("lanternfic_preferences", {
+    notifyUpdates: true,
+    defaultFontSize: 17,
+    defaultNight: false,
+  });
 
-  // author studio state
-  const [authorWorks, setAuthorWorks] = useState(initialAuthorWorks);
+  // author studio state — shared with the /admin page via localStorage
+  const [authorWorks, setAuthorWorks] = useLocalStorageState("lanternfic_authorWorks", initialAuthorWorks);
   const [activeWork, setActiveWork] = useState(null);
   const [activeDraft, setActiveDraft] = useState(null);
 
-  // wallet / earnings state
-  const [wallet, setWallet] = useState(initialWallet);
-  const [unlockedChapters, setUnlockedChapters] = useState({ n1: [1, 2, 3, 4, 5] });
+  // wallet / earnings state — shared with the /admin page via localStorage
+  const [wallet, setWallet] = useLocalStorageState("lanternfic_wallet", initialWallet);
+  const [unlockedChapters, setUnlockedChapters] = useLocalStorageState("lanternfic_unlocked", { n1: [1, 2, 3, 4, 5] });
   const [tipTarget, setTipTarget] = useState(null);
-
-  // admin state
-  const [adminUsers, setAdminUsers] = useState(initialAdminUsers);
-  const [flags, setFlags] = useState(initialFlags);
-  const [payoutRequests, setPayoutRequests] = useState(initialPayoutRequests);
 
   const addTransaction = (label, amount, type) => {
     setWallet((w) => ({
@@ -2393,12 +2487,6 @@ export default function App() {
         position: "relative",
       }}
     >
-      <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Fraunces:wght@500;600;700&family=Inter:wght@400;500;600;700&family=Source+Serif+4:wght@400;500&display=swap');
-        * { box-sizing: border-box; }
-        ::-webkit-scrollbar { display: none; }
-      `}</style>
-
       {view === "discover" && <Discover onOpenNovel={openNovel} library={library} toggleLibrary={toggleLibrary} />}
       {view === "library" && <Library library={library} onOpenNovel={openNovel} progress={progress} />}
       {view === "profile" && (
@@ -2407,7 +2495,9 @@ export default function App() {
           progress={progress}
           wallet={wallet}
           onOpenWallet={() => setView("wallet")}
-          onOpenAdmin={() => setView("admin")}
+          onOpenAdmin={() => navigate("/admin")}
+          preferences={preferences}
+          setPreferences={setPreferences}
         />
       )}
       {view === "studio" && (
@@ -2427,19 +2517,6 @@ export default function App() {
           onWatchAd={watchAd}
           onCopyReferral={copyReferral}
           onRequestPayout={requestPayout}
-        />
-      )}
-      {view === "admin" && (
-        <Admin
-          onBack={() => setView("profile")}
-          adminUsers={adminUsers}
-          setAdminUsers={setAdminUsers}
-          flags={flags}
-          setFlags={setFlags}
-          payoutRequests={payoutRequests}
-          setPayoutRequests={setPayoutRequests}
-          authorWorks={authorWorks}
-          wallet={wallet}
         />
       )}
       {view === "workManage" && activeWork && (
@@ -2477,6 +2554,8 @@ export default function App() {
           isLocked={activeChapter.premium && !(unlockedChapters[activeNovel.id] || []).includes(activeChapter.num)}
           walletBalance={wallet.readerPoints}
           onUnlock={unlockChapter}
+          preferences={preferences}
+          setPreferences={setPreferences}
         />
       )}
       {tipTarget && (
@@ -2489,7 +2568,7 @@ export default function App() {
       )}
 
       {/* bottom nav */}
-      {view !== "reader" && view !== "editor" && view !== "workManage" && view !== "wallet" && view !== "admin" && (
+      {view !== "reader" && view !== "editor" && view !== "workManage" && view !== "wallet" && (
         <div
           style={{
             position: "fixed",
@@ -2534,5 +2613,55 @@ export default function App() {
         </div>
       )}
     </div>
+  );
+}
+
+/* ---------------------------------------------------------
+   ADMIN PAGE — a separate route (/admin), not part of the
+   reader/writer view-switching app above. It reads/writes
+   the same localStorage-backed data so actions here (payout
+   approvals, moderation, suspensions) are visible back in
+   the main app and vice versa.
+--------------------------------------------------------- */
+
+function AdminPage() {
+  const navigate = useNavigate();
+  const [authorWorks, setAuthorWorks] = useLocalStorageState("lanternfic_authorWorks", initialAuthorWorks);
+  const [wallet] = useLocalStorageState("lanternfic_wallet", initialWallet);
+  const [adminUsers, setAdminUsers] = useLocalStorageState("lanternfic_adminUsers", initialAdminUsers);
+  const [flags, setFlags] = useLocalStorageState("lanternfic_flags", initialFlags);
+  const [payoutRequests, setPayoutRequests] = useLocalStorageState("lanternfic_payoutRequests", initialPayoutRequests);
+
+  return (
+    <div
+      style={{
+        fontFamily: "'Inter', sans-serif",
+        background: "#14121F",
+        minHeight: "100vh",
+        maxWidth: 480,
+        margin: "0 auto",
+      }}
+    >
+      <Admin
+        onBack={() => navigate("/")}
+        adminUsers={adminUsers}
+        setAdminUsers={setAdminUsers}
+        flags={flags}
+        setFlags={setFlags}
+        payoutRequests={payoutRequests}
+        setPayoutRequests={setPayoutRequests}
+        authorWorks={authorWorks}
+        wallet={wallet}
+      />
+    </div>
+  );
+}
+
+export default function App() {
+  return (
+    <Routes>
+      <Route path="/admin" element={<AdminPage />} />
+      <Route path="/*" element={<MainApp />} />
+    </Routes>
   );
 }
