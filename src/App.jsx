@@ -2,6 +2,7 @@ import React, { useState, useMemo, useRef, useEffect } from "react";
 import { Routes, Route, useNavigate } from "react-router-dom";
 import { Search, Flame, BookOpen, ChevronLeft, ChevronRight, Bookmark, Star, Clock, List, X, Sun, Moon, Type, Minus, Plus, User, Award, BookMarked, Bell, HelpCircle, LogOut, ChevronRight as ChevronRightIcon, PenSquare, Trash2, Send, Eye, Heart, FileText, Check, Wallet as WalletIcon, DollarSign, Gift, Lock, Unlock, Share2, PlayCircle, TrendingUp, ArrowDownToLine, ShieldCheck, Flag, Users, BarChart3, Ban, CheckCircle2, XCircle, AlertTriangle } from "lucide-react";
 import { useLocalStorageState } from "./hooks.js";
+import { SEED_USERS, findUserByEmail } from "./auth.js";
 
 /* ---------------------------------------------------------
    MOCK DATA
@@ -9,7 +10,7 @@ import { useLocalStorageState } from "./hooks.js";
 
 const GENRES = ["Fantasy", "Xianxia", "LitRPG", "Romance", "Sci-Fi", "Mystery"];
 
-const NOVELS = [
+const NOVEL_SEED = [
   {
     id: "n1",
     title: "The Sword That Remembers",
@@ -183,11 +184,11 @@ const initialWallet = {
 };
 
 const initialAdminUsers = [
-  { id: "u1", name: "Marín Osei", handle: "@marin.reads", role: "Reader & Writer", status: "active", joined: "Mar 2024" },
-  { id: "u2", name: "Kofi Boateng", handle: "@kofi_reads", role: "Reader", status: "active", joined: "Jan 2025" },
-  { id: "u3", name: "Priya Nandakumar", handle: "@priya_writes", role: "Writer", status: "active", joined: "Jun 2023" },
-  { id: "u4", name: "Devon Marsh", handle: "@devonm", role: "Reader", status: "suspended", joined: "Feb 2026" },
-  { id: "u5", name: "Lian Zhao", handle: "@lianz", role: "Writer", status: "active", joined: "Sep 2024" },
+  { id: "u1", name: "Marín Osei", handle: "@marin.reads", role: "Reader & Writer", status: "active", joined: "Mar 2024", isAdmin: true },
+  { id: "u2", name: "Kofi Boateng", handle: "@kofi_reads", role: "Reader", status: "active", joined: "Jan 2025", isAdmin: false },
+  { id: "u3", name: "Priya Nandakumar", handle: "@priya_writes", role: "Writer", status: "active", joined: "Jun 2023", isAdmin: false },
+  { id: "u4", name: "Devon Marsh", handle: "@devonm", role: "Reader", status: "suspended", joined: "Feb 2026", isAdmin: false },
+  { id: "u5", name: "Lian Zhao", handle: "@lianz", role: "Writer", status: "active", joined: "Sep 2024", isAdmin: false },
 ];
 
 const initialFlags = [
@@ -298,12 +299,12 @@ function Cover({ novel, w = 64, h = 88 }) {
    DISCOVER (HOME) VIEW
 --------------------------------------------------------- */
 
-function Discover({ onOpenNovel, library, toggleLibrary }) {
+function Discover({ novels, onOpenNovel, library, toggleLibrary }) {
   const [genre, setGenre] = useState("All");
   const [query, setQuery] = useState("");
 
   const filtered = useMemo(() => {
-    return NOVELS.filter((n) => {
+    return novels.filter((n) => {
       const matchesGenre = genre === "All" || n.genre === genre;
       const matchesQuery =
         query.trim() === "" ||
@@ -311,9 +312,9 @@ function Discover({ onOpenNovel, library, toggleLibrary }) {
         n.author.toLowerCase().includes(query.toLowerCase());
       return matchesGenre && matchesQuery;
     });
-  }, [genre, query]);
+  }, [genre, query, novels]);
 
-  const trending = [...NOVELS].sort((a, b) => b.rating - a.rating).slice(0, 3);
+  const trending = [...novels].sort((a, b) => b.rating - a.rating).slice(0, 3);
 
   return (
     <div style={{ paddingBottom: 90 }}>
@@ -713,7 +714,7 @@ const backBtnStyle = {
    READER VIEW
 --------------------------------------------------------- */
 
-function Reader({ novel, chapter, chapters, onBack, onChangeChapter, markRead, isLocked, walletBalance, onUnlock, preferences, setPreferences }) {
+function Reader({ novel, chapter, chapters, onBack, onChangeChapter, markRead, isLocked, walletBalance, onUnlock, preferences, setPreferences, isAuthenticated, onGoToLogin }) {
   const [fontSize, setFontSize] = useState(preferences?.defaultFontSize ?? 17);
   const [night, setNight] = useState(preferences?.defaultNight ?? false);
   const scrollRef = useRef(null);
@@ -723,9 +724,9 @@ function Reader({ novel, chapter, chapters, onBack, onChangeChapter, markRead, i
   const hasNext = idx < chapters.length - 1;
 
   useEffect(() => {
-    if (!isLocked) markRead(novel.id, idx);
+    if (!isLocked && isAuthenticated) markRead(novel.id, idx);
     if (scrollRef.current) scrollRef.current.scrollTop = 0;
-  }, [chapter.num, isLocked]);
+  }, [chapter.num, isLocked, isAuthenticated]);
 
   // Remember the reader's latest font size / night mode choice as their default for next time
   useEffect(() => {
@@ -737,6 +738,66 @@ function Reader({ novel, chapter, chapters, onBack, onChangeChapter, markRead, i
   const paperBg = night ? "#1A1826" : "#F3ECDD";
   const paperText = night ? "#D9D4E8" : "#2B2440";
   const paperMuted = night ? "#726C8C" : "#8B7F6B";
+
+  if (!isAuthenticated) {
+    return (
+      <div style={{ background: paperBg, minHeight: "100%", display: "flex", flexDirection: "column" }}>
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            padding: "12px 14px",
+            borderBottom: `1px solid ${night ? "rgba(255,255,255,0.08)" : "rgba(43,36,64,0.1)"}`,
+          }}
+        >
+          <button onClick={onBack} style={{ ...backBtnStyle, background: "transparent", border: "none" }}>
+            <ChevronLeft size={20} color={paperText} />
+          </button>
+        </div>
+        <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "0 30px", textAlign: "center" }}>
+          <div
+            style={{
+              width: 52,
+              height: 52,
+              borderRadius: "50%",
+              background: "rgba(212,162,76,0.15)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              marginBottom: 16,
+            }}
+          >
+            <Lock size={22} color="#D4A24C" />
+          </div>
+          <div style={{ fontFamily: "'Fraunces', serif", fontSize: 18, color: paperText, marginBottom: 8 }}>
+            Sign in to keep reading
+          </div>
+          <p style={{ fontSize: 13, color: paperMuted, lineHeight: 1.6, marginBottom: 20, maxWidth: 280 }}>
+            Create a free account to read {novel.title} and every other story on Lanternfic.
+          </p>
+          <button
+            onClick={onGoToLogin}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 8,
+              background: "#D4A24C",
+              color: "#14121F",
+              border: "none",
+              borderRadius: 10,
+              padding: "12px 26px",
+              fontWeight: 700,
+              fontSize: 14,
+              cursor: "pointer",
+              fontFamily: "'Inter', sans-serif",
+            }}
+          >
+            Sign in / Sign up
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div style={{ background: paperBg, minHeight: "100%", display: "flex", flexDirection: "column" }}>
@@ -954,8 +1015,8 @@ function navBtnStyle(night, primary) {
    LIBRARY VIEW
 --------------------------------------------------------- */
 
-function Library({ library, onOpenNovel, progress }) {
-  const novels = NOVELS.filter((n) => library.includes(n.id));
+function Library({ allNovels, library, onOpenNovel, progress }) {
+  const novels = allNovels.filter((n) => library.includes(n.id));
   return (
     <div style={{ padding: "20px 18px 100px" }}>
       <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
@@ -1018,12 +1079,6 @@ function Library({ library, onOpenNovel, progress }) {
 /* ---------------------------------------------------------
    PROFILE VIEW
 --------------------------------------------------------- */
-
-const USER = {
-  name: "Marín Osei",
-  handle: "@marin.reads",
-  joined: "Reading since Mar 2024",
-};
 
 const BADGES = [
   { icon: Flame, label: "7-day streak", color: "#D4A24C" },
@@ -1115,9 +1170,55 @@ function SettingsRow({ icon: Icon, label, sublabel, last, onClick }) {
   );
 }
 
-function Profile({ library, progress, wallet, onOpenWallet, onOpenAdmin, preferences, setPreferences }) {
+function Profile({ currentUser, onSignOut, onGoToLogin, library, progress, wallet, onOpenWallet, onOpenAdmin, preferences, setPreferences }) {
   const chaptersRead = Object.values(progress).reduce((sum, idx) => sum + idx + 1, 0);
   const [prefsOpen, setPrefsOpen] = useState(false);
+
+  if (!currentUser) {
+    return (
+      <div style={{ padding: "24px 18px 100px", display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center", paddingTop: 80 }}>
+        <div
+          style={{
+            width: 56,
+            height: 56,
+            borderRadius: "50%",
+            background: "rgba(212,162,76,0.15)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            marginBottom: 16,
+          }}
+        >
+          <User size={24} color="#D4A24C" />
+        </div>
+        <div style={{ fontFamily: "'Fraunces', serif", fontSize: 18, color: "#F3ECDD", marginBottom: 6 }}>
+          Sign in to see your profile
+        </div>
+        <p style={{ fontSize: 13, color: "#8B85A3", lineHeight: 1.6, marginBottom: 20, maxWidth: 260 }}>
+          Track your reading, manage your wallet, and access your account settings.
+        </p>
+        <button
+          onClick={onGoToLogin}
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 8,
+            background: "#D4A24C",
+            color: "#14121F",
+            border: "none",
+            borderRadius: 10,
+            padding: "12px 24px",
+            fontWeight: 700,
+            fontSize: 14,
+            cursor: "pointer",
+            fontFamily: "'Inter', sans-serif",
+          }}
+        >
+          Sign in
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div style={{ padding: "24px 18px 100px" }}>
@@ -1137,15 +1238,17 @@ function Profile({ library, progress, wallet, onOpenWallet, onOpenAdmin, prefere
           }}
         >
           <span style={{ fontFamily: "'Fraunces', serif", fontSize: 22, fontWeight: 600, color: "#14121F" }}>
-            {USER.name.split(" ").map((n) => n[0]).join("")}
+            {currentUser.name.split(" ").map((n) => n[0]).join("")}
           </span>
         </div>
         <div style={{ minWidth: 0 }}>
           <div style={{ fontFamily: "'Fraunces', serif", fontSize: 18, color: "#F3ECDD", fontWeight: 600 }}>
-            {USER.name}
+            {currentUser.name}
           </div>
-          <div style={{ fontSize: 12, color: "#8B85A3", marginTop: 2 }}>{USER.handle}</div>
-          <div style={{ fontSize: 11, color: "#5A5470", marginTop: 3 }}>{USER.joined}</div>
+          <div style={{ fontSize: 12, color: "#8B85A3", marginTop: 2 }}>{currentUser.email}</div>
+          {currentUser.isAdmin && (
+            <div style={{ fontSize: 10.5, color: "#D4A24C", marginTop: 3, fontWeight: 700 }}>ADMIN ACCOUNT</div>
+          )}
         </div>
       </div>
 
@@ -1279,7 +1382,9 @@ function Profile({ library, progress, wallet, onOpenWallet, onOpenAdmin, prefere
             </div>
           </div>
         )}
-        <SettingsRow icon={ShieldCheck} label="Admin panel" sublabel="Moderation, payouts, users" onClick={onOpenAdmin} />
+        {currentUser.isAdmin && (
+          <SettingsRow icon={ShieldCheck} label="Admin panel" sublabel="Moderation, payouts, users, catalog" onClick={onOpenAdmin} />
+        )}
         <SettingsRow
           icon={HelpCircle}
           label="Help & feedback"
@@ -1292,6 +1397,7 @@ function Profile({ library, progress, wallet, onOpenWallet, onOpenAdmin, prefere
       </div>
 
       <button
+        onClick={onSignOut}
         style={{
           display: "flex",
           alignItems: "center",
@@ -1319,10 +1425,56 @@ function Profile({ library, progress, wallet, onOpenWallet, onOpenAdmin, prefere
    AUTHOR STUDIO
 --------------------------------------------------------- */
 
-function Studio({ works, onOpenWork, onNewStory, wallet, onOpenWallet }) {
+function Studio({ works, onOpenWork, onNewStory, wallet, onOpenWallet, isAuthenticated, onGoToLogin }) {
   const totalViews = works.reduce((sum, w) => sum + parseFloat(w.views), 0);
   const totalDrafts = works.reduce((sum, w) => sum + w.chapters.filter((c) => c.status === "draft").length, 0);
   const writerTotal = works.reduce((sum, w) => sum + w.earnings.adShare + w.earnings.tips + w.earnings.premiumSales, 0);
+
+  if (!isAuthenticated) {
+    return (
+      <div style={{ padding: "24px 18px 100px", display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center", paddingTop: 80 }}>
+        <div
+          style={{
+            width: 56,
+            height: 56,
+            borderRadius: "50%",
+            background: "rgba(212,162,76,0.15)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            marginBottom: 16,
+          }}
+        >
+          <PenSquare size={24} color="#D4A24C" />
+        </div>
+        <div style={{ fontFamily: "'Fraunces', serif", fontSize: 18, color: "#F3ECDD", marginBottom: 6 }}>
+          Sign in to start writing
+        </div>
+        <p style={{ fontSize: 13, color: "#8B85A3", lineHeight: 1.6, marginBottom: 20, maxWidth: 260 }}>
+          Create a free account to publish stories, manage chapters, and track your earnings.
+        </p>
+        <button
+          onClick={onGoToLogin}
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 8,
+            background: "#D4A24C",
+            color: "#14121F",
+            border: "none",
+            borderRadius: 10,
+            padding: "12px 24px",
+            fontWeight: 700,
+            fontSize: 14,
+            cursor: "pointer",
+            fontFamily: "'Inter', sans-serif",
+          }}
+        >
+          Sign in / Sign up
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div style={{ padding: "20px 18px 100px" }}>
@@ -2094,7 +2246,72 @@ function AdminTabButton({ active, onClick, icon: Icon, label, badge }) {
   );
 }
 
-function Admin({ onBack, adminUsers, setAdminUsers, flags, setFlags, payoutRequests, setPayoutRequests, authorWorks, wallet }) {
+function EditableField({ value, onSave, placeholder, style }) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(value);
+
+  if (editing) {
+    return (
+      <input
+        autoFocus
+        value={draft}
+        placeholder={placeholder}
+        onChange={(e) => setDraft(e.target.value)}
+        onBlur={() => {
+          onSave(draft);
+          setEditing(false);
+        }}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") {
+            onSave(draft);
+            setEditing(false);
+          }
+        }}
+        style={{
+          background: "rgba(255,255,255,0.08)",
+          border: "1px solid rgba(212,162,76,0.4)",
+          borderRadius: 6,
+          padding: "4px 6px",
+          color: "#F3ECDD",
+          fontSize: 12.5,
+          fontFamily: "'Inter', sans-serif",
+          width: "100%",
+          ...style,
+        }}
+      />
+    );
+  }
+
+  return (
+    <span
+      onClick={() => {
+        setDraft(value);
+        setEditing(true);
+      }}
+      style={{ cursor: "pointer", borderBottom: "1px dashed rgba(255,255,255,0.25)", ...style }}
+      title="Tap to edit"
+    >
+      {value || placeholder}
+    </span>
+  );
+}
+
+function Admin({
+  onBack,
+  currentAdmin,
+  onSignOut,
+  adminUsers,
+  setAdminUsers,
+  flags,
+  setFlags,
+  payoutRequests,
+  setPayoutRequests,
+  authorWorks,
+  setAuthorWorks,
+  novels,
+  setNovels,
+  wallet,
+}) {
   const [tab, setTab] = useState("overview");
 
   const pendingFlags = flags.filter((f) => f.status === "pending").length;
@@ -2118,19 +2335,73 @@ function Admin({ onBack, adminUsers, setAdminUsers, flags, setFlags, payoutReque
     );
   };
 
+  const updateUserField = (id, field, value) => {
+    setAdminUsers((us) => us.map((u) => (u.id === id ? { ...u, [field]: value } : u)));
+  };
+
+  const toggleUserAdmin = (id) => {
+    setAdminUsers((us) => us.map((u) => (u.id === id ? { ...u, isAdmin: !u.isAdmin } : u)));
+  };
+
+  const updateNovelField = (id, field, value) => {
+    setNovels((ns) => ns.map((n) => (n.id === id ? { ...n, [field]: value } : n)));
+  };
+
+  const deleteNovel = (id) => {
+    setNovels((ns) => ns.filter((n) => n.id !== id));
+  };
+
+  const addNovel = () => {
+    const id = `n${Date.now()}`;
+    const novel = {
+      id,
+      title: "Untitled Story",
+      author: "Unknown Author",
+      genre: "Fantasy",
+      cover: "#5C7C5C",
+      coverAccent: "#F3ECDD",
+      synopsis: "Add a synopsis...",
+      rating: 0,
+      reads: "0",
+      status: "Ongoing",
+      chapters: 1,
+      updated: "just now",
+    };
+    setNovels((ns) => [novel, ...ns]);
+  };
+
+  const deleteAuthorWork = (id) => {
+    setAuthorWorks((ws) => ws.filter((w) => w.id !== id));
+  };
+
   return (
     <div style={{ paddingBottom: 40 }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "16px 18px 14px" }}>
-        <button onClick={onBack} style={backBtnStyle}>
-          <ChevronLeft size={18} color="#F3ECDD" />
-        </button>
-        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <ShieldCheck size={17} color="#D4A24C" />
-          <h1 style={{ fontFamily: "'Fraunces', serif", fontSize: 19, color: "#F3ECDD", margin: 0 }}>Admin Panel</h1>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "16px 18px 14px" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <button onClick={onBack} style={backBtnStyle}>
+            <ChevronLeft size={18} color="#F3ECDD" />
+          </button>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <ShieldCheck size={17} color="#D4A24C" />
+            <h1 style={{ fontFamily: "'Fraunces', serif", fontSize: 19, color: "#F3ECDD", margin: 0 }}>Admin Panel</h1>
+          </div>
         </div>
+        {currentAdmin && (
+          <button
+            onClick={onSignOut}
+            style={{ display: "flex", alignItems: "center", gap: 5, background: "rgba(181,72,47,0.12)", border: "1px solid rgba(181,72,47,0.3)", color: "#D98B76", borderRadius: 8, padding: "6px 10px", fontSize: 11, fontWeight: 700, cursor: "pointer" }}
+          >
+            <LogOut size={12} /> Sign out
+          </button>
+        )}
       </div>
+      {currentAdmin && (
+        <div style={{ padding: "0 18px 14px", fontSize: 11.5, color: "#8B85A3" }}>
+          Signed in as <span style={{ color: "#D4A24C", fontWeight: 600 }}>{currentAdmin.name}</span>
+        </div>
+      )}
 
-      <div style={{ display: "flex", borderBottom: "1px solid rgba(255,255,255,0.08)", marginBottom: 18 }}>
+      <div style={{ display: "flex", borderBottom: "1px solid rgba(255,255,255,0.08)", marginBottom: 18, overflowX: "auto" }}>
         <AdminTabButton active={tab === "overview"} onClick={() => setTab("overview")} icon={BarChart3} label="Overview" />
         <AdminTabButton
           active={tab === "moderation"}
@@ -2147,6 +2418,7 @@ function Admin({ onBack, adminUsers, setAdminUsers, flags, setFlags, payoutReque
           badge={pendingPayouts}
         />
         <AdminTabButton active={tab === "users"} onClick={() => setTab("users")} icon={Users} label="Users" />
+        <AdminTabButton active={tab === "catalog"} onClick={() => setTab("catalog")} icon={BookOpen} label="Catalog" />
       </div>
 
       <div style={{ padding: "0 18px" }}>
@@ -2159,7 +2431,7 @@ function Admin({ onBack, adminUsers, setAdminUsers, flags, setFlags, payoutReque
               </div>
               <div style={{ flex: 1, background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 12, padding: "14px 12px" }}>
                 <div style={{ fontSize: 10.5, color: "#8B85A3" }}>Live stories</div>
-                <div style={{ fontFamily: "'Fraunces', serif", fontSize: 20, color: "#F3ECDD", marginTop: 4 }}>{NOVELS.length + authorWorks.length}</div>
+                <div style={{ fontFamily: "'Fraunces', serif", fontSize: 20, color: "#F3ECDD", marginTop: 4 }}>{novels.length + authorWorks.length}</div>
               </div>
             </div>
             <div style={{ display: "flex", gap: 10, marginBottom: 20 }}>
@@ -2289,43 +2561,329 @@ function Admin({ onBack, adminUsers, setAdminUsers, flags, setFlags, payoutReque
         {tab === "users" && (
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
             {adminUsers.map((u) => (
-              <div key={u.id} style={{ display: "flex", alignItems: "center", gap: 10, background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 12, padding: "10px 12px" }}>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: 13, color: "#F3ECDD", fontWeight: 600 }}>{u.name}</div>
-                  <div style={{ fontSize: 11, color: "#8B85A3", marginTop: 1 }}>
-                    {u.handle} &middot; {u.role} &middot; joined {u.joined}
+              <div key={u.id} style={{ display: "flex", flexDirection: "column", gap: 6, background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 12, padding: "10px 12px" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <EditableField
+                      value={u.name}
+                      onSave={(v) => updateUserField(u.id, "name", v)}
+                      style={{ fontSize: 13, color: "#F3ECDD", fontWeight: 600 }}
+                    />
+                    <div style={{ fontSize: 11, color: "#8B85A3", marginTop: 2 }}>
+                      {u.handle} &middot; {u.role} &middot; joined {u.joined}
+                    </div>
                   </div>
+                  <span
+                    style={{
+                      fontSize: 9.5,
+                      fontWeight: 700,
+                      textTransform: "uppercase",
+                      color: u.status === "active" ? "#7FBF9E" : "#D98B76",
+                      flexShrink: 0,
+                    }}
+                  >
+                    {u.status}
+                  </span>
+                  <button
+                    onClick={() => toggleUserStatus(u.id)}
+                    style={{
+                      ...iconBtnStyle,
+                      background: u.status === "active" ? "rgba(181,72,47,0.12)" : "rgba(127,191,158,0.12)",
+                      flexShrink: 0,
+                    }}
+                    aria-label={u.status === "active" ? "Suspend user" : "Reactivate user"}
+                  >
+                    {u.status === "active" ? <Ban size={13} color="#D98B76" /> : <CheckCircle2 size={13} color="#7FBF9E" />}
+                  </button>
                 </div>
-                <span
-                  style={{
-                    fontSize: 9.5,
-                    fontWeight: 700,
-                    textTransform: "uppercase",
-                    color: u.status === "active" ? "#7FBF9E" : "#D98B76",
-                    flexShrink: 0,
-                  }}
-                >
-                  {u.status}
-                </span>
                 <button
-                  onClick={() => toggleUserStatus(u.id)}
+                  onClick={() => toggleUserAdmin(u.id)}
                   style={{
-                    ...iconBtnStyle,
-                    background: u.status === "active" ? "rgba(181,72,47,0.12)" : "rgba(127,191,158,0.12)",
-                    flexShrink: 0,
+                    alignSelf: "flex-start",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 5,
+                    background: u.isAdmin ? "rgba(212,162,76,0.15)" : "rgba(255,255,255,0.06)",
+                    border: u.isAdmin ? "1px solid rgba(212,162,76,0.4)" : "1px solid rgba(255,255,255,0.12)",
+                    color: u.isAdmin ? "#D4A24C" : "#B4AECB",
+                    borderRadius: 7,
+                    padding: "5px 9px",
+                    fontSize: 10.5,
+                    fontWeight: 700,
+                    cursor: "pointer",
                   }}
-                  aria-label={u.status === "active" ? "Suspend user" : "Reactivate user"}
                 >
-                  {u.status === "active" ? <Ban size={13} color="#D98B76" /> : <CheckCircle2 size={13} color="#7FBF9E" />}
+                  <ShieldCheck size={11} /> {u.isAdmin ? "Admin" : "Make admin"}
                 </button>
               </div>
             ))}
+          </div>
+        )}
+
+        {tab === "catalog" && (
+          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+            <button
+              onClick={addNovel}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: 8,
+                background: "#D4A24C",
+                color: "#14121F",
+                border: "none",
+                borderRadius: 10,
+                padding: "11px 0",
+                fontWeight: 700,
+                fontSize: 13,
+                cursor: "pointer",
+                marginBottom: 4,
+              }}
+            >
+              <Plus size={15} /> Add story to catalog
+            </button>
+
+            {novels.map((n) => (
+              <div key={n.id} style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 12, padding: 12 }}>
+                <div style={{ display: "flex", gap: 10, marginBottom: 8 }}>
+                  <Cover novel={n} w={48} h={66} />
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <EditableField
+                      value={n.title}
+                      onSave={(v) => updateNovelField(n.id, "title", v)}
+                      style={{ fontSize: 13.5, fontWeight: 600, color: "#F3ECDD", display: "block", marginBottom: 4 }}
+                    />
+                    <EditableField
+                      value={n.author}
+                      onSave={(v) => updateNovelField(n.id, "author", v)}
+                      style={{ fontSize: 11.5, color: "#B4AECB", display: "block", marginBottom: 4 }}
+                    />
+                    <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                      <select
+                        value={n.genre}
+                        onChange={(e) => updateNovelField(n.id, "genre", e.target.value)}
+                        style={{ background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.12)", color: "#D9D4E8", borderRadius: 6, fontSize: 10.5, padding: "3px 5px" }}
+                      >
+                        {GENRES.map((g) => (
+                          <option key={g} value={g}>{g}</option>
+                        ))}
+                      </select>
+                      <select
+                        value={n.status}
+                        onChange={(e) => updateNovelField(n.id, "status", e.target.value)}
+                        style={{ background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.12)", color: "#D9D4E8", borderRadius: 6, fontSize: 10.5, padding: "3px 5px" }}
+                      >
+                        <option value="Ongoing">Ongoing</option>
+                        <option value="Completed">Completed</option>
+                      </select>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => deleteNovel(n.id)}
+                    style={{ ...iconBtnStyle, background: "rgba(181,72,47,0.12)", flexShrink: 0, alignSelf: "flex-start" }}
+                    aria-label="Delete story"
+                  >
+                    <Trash2 size={13} color="#D98B76" />
+                  </button>
+                </div>
+                <EditableField
+                  value={n.synopsis}
+                  onSave={(v) => updateNovelField(n.id, "synopsis", v)}
+                  placeholder="Synopsis..."
+                  style={{ fontSize: 11.5, color: "#8B85A3", display: "block", width: "100%" }}
+                />
+              </div>
+            ))}
+
+            {authorWorks.length > 0 && (
+              <>
+                <div style={{ marginTop: 8 }}>
+                  <SectionLabel icon={<PenSquare size={13} color="#D4A24C" />} text="Author-published works" />
+                </div>
+                {authorWorks.map((w) => (
+                  <div key={w.id} style={{ display: "flex", alignItems: "center", gap: 10, background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 12, padding: "10px 12px" }}>
+                    <Cover novel={w} w={40} h={56} />
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <EditableField
+                        value={w.title}
+                        onSave={(v) => setAuthorWorks((ws) => ws.map((x) => (x.id === w.id ? { ...x, title: v } : x)))}
+                        style={{ fontSize: 13, fontWeight: 600, color: "#F3ECDD" }}
+                      />
+                      <div style={{ fontSize: 11, color: "#8B85A3", marginTop: 2 }}>{w.chapters.length} chapters &middot; {w.genre}</div>
+                    </div>
+                    <button
+                      onClick={() => deleteAuthorWork(w.id)}
+                      style={{ ...iconBtnStyle, background: "rgba(181,72,47,0.12)", flexShrink: 0 }}
+                      aria-label="Delete story"
+                    >
+                      <Trash2 size={13} color="#D98B76" />
+                    </button>
+                  </div>
+                ))}
+              </>
+            )}
           </div>
         )}
       </div>
     </div>
   );
 }
+
+/* ---------------------------------------------------------
+   AUTH PAGE (Sign in / Sign up) — /login
+--------------------------------------------------------- */
+
+function AuthPage({ users, onSignUp, onSignIn }) {
+  const navigate = useNavigate();
+  const [mode, setMode] = useState("signin"); // signin | signup
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
+
+  const submit = (e) => {
+    e.preventDefault();
+    setError("");
+
+    if (mode === "signup") {
+      if (!name.trim() || !email.trim() || password.length < 6) {
+        setError("Fill in your name, email, and a password of at least 6 characters.");
+        return;
+      }
+      if (findUserByEmail(users, email)) {
+        setError("An account with that email already exists — try signing in instead.");
+        return;
+      }
+      const result = onSignUp({ name: name.trim(), email: email.trim(), password });
+      if (result?.error) {
+        setError(result.error);
+        return;
+      }
+      navigate("/");
+    } else {
+      const result = onSignIn(email.trim(), password);
+      if (result?.error) {
+        setError(result.error);
+        return;
+      }
+      navigate("/");
+    }
+  };
+
+  return (
+    <div
+      style={{
+        fontFamily: "'Inter', sans-serif",
+        background: "#14121F",
+        minHeight: "100vh",
+        maxWidth: 480,
+        margin: "0 auto",
+        display: "flex",
+        flexDirection: "column",
+        justifyContent: "center",
+        padding: "24px 24px 60px",
+      }}
+    >
+      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6, justifyContent: "center" }}>
+        <Flame size={22} color="#D4A24C" strokeWidth={2.2} />
+        <span style={{ fontFamily: "'Fraunces', serif", fontSize: 24, fontWeight: 600, color: "#F3ECDD" }}>
+          Lanternfic
+        </span>
+      </div>
+      <p style={{ textAlign: "center", color: "#8B85A3", fontSize: 13, margin: "0 0 28px" }}>
+        {mode === "signin" ? "Sign in to read and write on Lanternfic." : "Create a free account to get started."}
+      </p>
+
+      <form onSubmit={submit} style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+        {mode === "signup" && (
+          <input
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="Full name"
+            style={authInputStyle}
+          />
+        )}
+        <input
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          placeholder="Email"
+          type="email"
+          style={authInputStyle}
+        />
+        <input
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          placeholder="Password"
+          type="password"
+          style={authInputStyle}
+        />
+
+        {error && (
+          <div style={{ fontSize: 12, color: "#D98B76", background: "rgba(181,72,47,0.1)", border: "1px solid rgba(181,72,47,0.25)", borderRadius: 8, padding: "8px 10px" }}>
+            {error}
+          </div>
+        )}
+
+        <button
+          type="submit"
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: 8,
+            background: "#D4A24C",
+            color: "#14121F",
+            border: "none",
+            borderRadius: 10,
+            padding: "13px 0",
+            fontWeight: 700,
+            fontSize: 14,
+            cursor: "pointer",
+            marginTop: 4,
+            fontFamily: "'Inter', sans-serif",
+          }}
+        >
+          {mode === "signin" ? "Sign in" : "Create account"}
+        </button>
+      </form>
+
+      <button
+        onClick={() => {
+          setMode((m) => (m === "signin" ? "signup" : "signin"));
+          setError("");
+        }}
+        style={{
+          background: "transparent",
+          border: "none",
+          color: "#B4AECB",
+          fontSize: 12.5,
+          marginTop: 18,
+          cursor: "pointer",
+          textAlign: "center",
+        }}
+      >
+        {mode === "signin" ? "New here? Create an account" : "Already have an account? Sign in"}
+      </button>
+
+      {mode === "signin" && (
+        <p style={{ fontSize: 10.5, color: "#5A5470", textAlign: "center", marginTop: 20, lineHeight: 1.6 }}>
+          Demo accounts: marin@lanternfic.app (admin) or kofi@lanternfic.app — password: password123
+        </p>
+      )}
+    </div>
+  );
+}
+
+const authInputStyle = {
+  background: "rgba(255,255,255,0.06)",
+  border: "1px solid rgba(255,255,255,0.12)",
+  borderRadius: 10,
+  padding: "12px 14px",
+  color: "#F3ECDD",
+  fontSize: 14,
+  fontFamily: "'Inter', sans-serif",
+  outline: "none",
+};
 
 /* ---------------------------------------------------------
    ROOT APP
@@ -2344,6 +2902,21 @@ function MainApp() {
     defaultFontSize: 17,
     defaultNight: false,
   });
+
+  // auth state — shared with /admin and /login via localStorage
+  const [users] = useLocalStorageState("lanternfic_users_db", SEED_USERS);
+  const [sessionUserId, setSessionUserId] = useLocalStorageState("lanternfic_session", null);
+  const currentUser = sessionUserId ? users.find((u) => u.id === sessionUserId) || null : null;
+  const isAuthenticated = !!currentUser;
+  const goToLogin = () => navigate("/login");
+  const signOut = () => {
+    setSessionUserId(null);
+    setView("discover");
+    setTab("discover");
+  };
+
+  // novel catalog — shared with the /admin page via localStorage
+  const [novels, setNovels] = useLocalStorageState("lanternfic_novels", NOVEL_SEED);
 
   // author studio state — shared with the /admin page via localStorage
   const [authorWorks, setAuthorWorks] = useLocalStorageState("lanternfic_authorWorks", initialAuthorWorks);
@@ -2487,10 +3060,13 @@ function MainApp() {
         position: "relative",
       }}
     >
-      {view === "discover" && <Discover onOpenNovel={openNovel} library={library} toggleLibrary={toggleLibrary} />}
-      {view === "library" && <Library library={library} onOpenNovel={openNovel} progress={progress} />}
+      {view === "discover" && <Discover novels={novels} onOpenNovel={openNovel} library={library} toggleLibrary={toggleLibrary} />}
+      {view === "library" && <Library allNovels={novels} library={library} onOpenNovel={openNovel} progress={progress} />}
       {view === "profile" && (
         <Profile
+          currentUser={currentUser}
+          onSignOut={signOut}
+          onGoToLogin={goToLogin}
           library={library}
           progress={progress}
           wallet={wallet}
@@ -2507,6 +3083,8 @@ function MainApp() {
           onNewStory={newStory}
           wallet={wallet}
           onOpenWallet={() => setView("wallet")}
+          isAuthenticated={isAuthenticated}
+          onGoToLogin={goToLogin}
         />
       )}
       {view === "wallet" && (
@@ -2540,7 +3118,7 @@ function MainApp() {
           toggleLibrary={toggleLibrary}
           progress={progress}
           unlockedChapters={unlockedChapters}
-          onOpenTip={setTipTarget}
+          onOpenTip={(novel) => (isAuthenticated ? setTipTarget(novel) : goToLogin())}
         />
       )}
       {view === "reader" && activeNovel && activeChapter && (
@@ -2556,6 +3134,8 @@ function MainApp() {
           onUnlock={unlockChapter}
           preferences={preferences}
           setPreferences={setPreferences}
+          isAuthenticated={isAuthenticated}
+          onGoToLogin={goToLogin}
         />
       )}
       {tipTarget && (
@@ -2626,24 +3206,108 @@ function MainApp() {
 
 function AdminPage() {
   const navigate = useNavigate();
+  const [users] = useLocalStorageState("lanternfic_users_db", SEED_USERS);
+  const [sessionUserId, setSessionUserId] = useLocalStorageState("lanternfic_session", null);
+  const currentUser = sessionUserId ? users.find((u) => u.id === sessionUserId) || null : null;
+
+  const [novels, setNovels] = useLocalStorageState("lanternfic_novels", NOVEL_SEED);
   const [authorWorks, setAuthorWorks] = useLocalStorageState("lanternfic_authorWorks", initialAuthorWorks);
   const [wallet] = useLocalStorageState("lanternfic_wallet", initialWallet);
   const [adminUsers, setAdminUsers] = useLocalStorageState("lanternfic_adminUsers", initialAdminUsers);
   const [flags, setFlags] = useLocalStorageState("lanternfic_flags", initialFlags);
   const [payoutRequests, setPayoutRequests] = useLocalStorageState("lanternfic_payoutRequests", initialPayoutRequests);
 
+  const [loginEmail, setLoginEmail] = useState("");
+  const [loginPassword, setLoginPassword] = useState("");
+  const [loginError, setLoginError] = useState("");
+
+  const wrapperStyle = {
+    fontFamily: "'Inter', sans-serif",
+    background: "#14121F",
+    minHeight: "100vh",
+    maxWidth: 480,
+    margin: "0 auto",
+  };
+
+  if (!currentUser || !currentUser.isAdmin) {
+    const submit = (e) => {
+      e.preventDefault();
+      setLoginError("");
+      const found = findUserByEmail(users, loginEmail);
+      if (!found || found.password !== loginPassword) {
+        setLoginError("Incorrect email or password.");
+        return;
+      }
+      if (!found.isAdmin) {
+        setLoginError("This account doesn't have admin access.");
+        return;
+      }
+      setSessionUserId(found.id);
+    };
+
+    return (
+      <div style={{ ...wrapperStyle, display: "flex", flexDirection: "column", justifyContent: "center", padding: "24px 24px 60px" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6, justifyContent: "center" }}>
+          <ShieldCheck size={22} color="#D4A24C" strokeWidth={2.2} />
+          <span style={{ fontFamily: "'Fraunces', serif", fontSize: 22, fontWeight: 600, color: "#F3ECDD" }}>
+            Admin sign-in
+          </span>
+        </div>
+        <p style={{ textAlign: "center", color: "#8B85A3", fontSize: 13, margin: "0 0 26px" }}>
+          This page is restricted to Lanternfic admin accounts.
+        </p>
+        <form onSubmit={submit} style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+          <input value={loginEmail} onChange={(e) => setLoginEmail(e.target.value)} placeholder="Admin email" type="email" style={authInputStyle} />
+          <input value={loginPassword} onChange={(e) => setLoginPassword(e.target.value)} placeholder="Password" type="password" style={authInputStyle} />
+          {loginError && (
+            <div style={{ fontSize: 12, color: "#D98B76", background: "rgba(181,72,47,0.1)", border: "1px solid rgba(181,72,47,0.25)", borderRadius: 8, padding: "8px 10px" }}>
+              {loginError}
+            </div>
+          )}
+          <button
+            type="submit"
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: 8,
+              background: "#D4A24C",
+              color: "#14121F",
+              border: "none",
+              borderRadius: 10,
+              padding: "13px 0",
+              fontWeight: 700,
+              fontSize: 14,
+              cursor: "pointer",
+              marginTop: 4,
+              fontFamily: "'Inter', sans-serif",
+            }}
+          >
+            Sign in
+          </button>
+        </form>
+        <button
+          onClick={() => navigate("/")}
+          style={{ background: "transparent", border: "none", color: "#B4AECB", fontSize: 12.5, marginTop: 18, cursor: "pointer", textAlign: "center" }}
+        >
+          Back to Lanternfic
+        </button>
+        <p style={{ fontSize: 10.5, color: "#5A5470", textAlign: "center", marginTop: 20, lineHeight: 1.6 }}>
+          Demo admin account: marin@lanternfic.app — password: password123
+        </p>
+      </div>
+    );
+  }
+
   return (
-    <div
-      style={{
-        fontFamily: "'Inter', sans-serif",
-        background: "#14121F",
-        minHeight: "100vh",
-        maxWidth: 480,
-        margin: "0 auto",
-      }}
-    >
+    <div style={wrapperStyle}>
       <Admin
         onBack={() => navigate("/")}
+        currentAdmin={currentUser}
+        onSignOut={() => {
+          setSessionUserId(null);
+          navigate("/");
+        }}
         adminUsers={adminUsers}
         setAdminUsers={setAdminUsers}
         flags={flags}
@@ -2651,16 +3315,58 @@ function AdminPage() {
         payoutRequests={payoutRequests}
         setPayoutRequests={setPayoutRequests}
         authorWorks={authorWorks}
+        setAuthorWorks={setAuthorWorks}
+        novels={novels}
+        setNovels={setNovels}
         wallet={wallet}
       />
     </div>
   );
 }
 
+function LoginRoute() {
+  const [users, setUsers] = useLocalStorageState("lanternfic_users_db", SEED_USERS);
+  const [, setSessionUserId] = useLocalStorageState("lanternfic_session", null);
+  const [adminUsers, setAdminUsers] = useLocalStorageState("lanternfic_adminUsers", initialAdminUsers);
+
+  const handleSignUp = ({ name, email, password }) => {
+    const id = `u${Date.now()}`;
+    const newUser = { id, name, email, password, isAdmin: false };
+    setUsers((us) => [...us, newUser]);
+    // Mirror into the admin-visible user directory too, so new signups show up in /admin → Users
+    setAdminUsers((us) => [
+      ...us,
+      {
+        id,
+        name,
+        handle: `@${name.toLowerCase().replace(/\s+/g, "")}`,
+        role: "Reader",
+        status: "active",
+        joined: new Date().toLocaleDateString(undefined, { month: "short", year: "numeric" }),
+        isAdmin: false,
+      },
+    ]);
+    setSessionUserId(id);
+    return {};
+  };
+
+  const handleSignIn = (email, password) => {
+    const found = findUserByEmail(users, email);
+    if (!found || found.password !== password) {
+      return { error: "Incorrect email or password." };
+    }
+    setSessionUserId(found.id);
+    return {};
+  };
+
+  return <AuthPage users={users} onSignUp={handleSignUp} onSignIn={handleSignIn} />;
+}
+
 export default function App() {
   return (
     <Routes>
       <Route path="/admin" element={<AdminPage />} />
+      <Route path="/login" element={<LoginRoute />} />
       <Route path="/*" element={<MainApp />} />
     </Routes>
   );
